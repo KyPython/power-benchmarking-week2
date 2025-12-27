@@ -492,6 +492,11 @@ class AutomatedFeedbackLoop:
                             if ui_imp.get('is_too_high'):
                                 print(f"     - Diminishing returns: UI already smooth (>60fps), extra power wasted")
                                 print(f"     - Battery impact: Same power, but could be better distributed")
+                                print(f"     - The Perceptibility Ceiling:")
+                                print(f"       • Background animations: Reduce frame rate (30fps) → ~20% savings")
+                                print(f"       • Non-critical effects: Lower quality → ~20% savings")
+                                print(f"       • Active window: Keep at 60fps (user actively sees)")
+                                print(f"       • Strategy: Don't reduce active content, throttle background")
                             elif ui_imp.get('is_optimal'):
                                 print(f"     - Maximum user experience per watt (optimal distribution)")
                                 print(f"     - Battery impact: Same power, optimal quality")
@@ -758,6 +763,67 @@ class AutomatedFeedbackLoop:
                             f"⚠️  High UI responsiveness ratio ({ui_responsiveness_ratio:.1f}%) - "
                             f"diminishing returns detected. UI already smooth, extra power could be "
                             f"used elsewhere. Consider if other processes need P-cores."
+                        )
+                        
+                        # The Perceptibility Ceiling: Deciding Which UI Tasks to Throttle
+                        #
+                        # **The Problem**: If UI ratio is 85% (waste territory), which UI tasks to throttle?
+                        #
+                        # **The Perceptibility Ceiling**:
+                        # - Human eye can't perceive >60fps (perceptibility ceiling)
+                        # - If UI is already smooth (>60fps), extra power is wasted
+                        # - Need to throttle UI tasks that are imperceptible
+                        #
+                        # **What to Throttle (Priority Order)**:
+                        # 1. **Background animations** (lowest priority):
+                        #    - Dock animations, menu bar animations, background window effects
+                        #    - User doesn't actively watch these → can throttle
+                        #    - Reduction: Lower frame rate (30fps instead of 60fps)
+                        #    - Power savings: ~20-30% of UI power
+                        #
+                        # 2. **Non-critical UI updates** (medium priority):
+                        #    - Window shadows, transparency effects, blur effects
+                        #    - User doesn't need these for functionality → can reduce quality
+                        #    - Reduction: Lower resolution/quality of effects
+                        #    - Power savings: ~15-25% of UI power
+                        #
+                        # 3. **Active window rendering** (highest priority - DON'T throttle):
+                        #    - Active window content, text rendering, user interactions
+                        #    - User actively sees this → must keep smooth
+                        #    - Keep at 60fps, full quality
+                        #
+                        # **The Strategy**:
+                        # - Don't reduce frame rate of active content (user would notice)
+                        # - Reduce quality/resolution of background effects (imperceptible)
+                        # - Result: Same perceived smoothness, less power
+                        #
+                        # **Implementation Note**: This requires macOS-level UI throttling APIs
+                        # (not available in this script, but the principle is documented)
+                        
+                        ui_throttle_recommendations = {
+                            'background_animations': {
+                                'priority': 1,
+                                'action': 'Reduce frame rate (30fps instead of 60fps)',
+                                'savings_percent': 20,
+                                'perceptibility': 'Low (user doesn't actively watch)'
+                            },
+                            'non_critical_effects': {
+                                'priority': 2,
+                                'action': 'Lower resolution/quality of effects',
+                                'savings_percent': 20,
+                                'perceptibility': 'Low (background effects)'
+                            },
+                            'active_window': {
+                                'priority': 3,
+                                'action': 'Keep at 60fps, full quality',
+                                'savings_percent': 0,
+                                'perceptibility': 'High (user actively sees)'
+                            }
+                        }
+                        
+                        quality_assessment += (
+                            f"\n     - Perceptibility Ceiling: UI already smooth (>60fps), "
+                            f"throttle background animations and non-critical effects"
                         )
                     elif is_too_low:
                         quality_assessment = (

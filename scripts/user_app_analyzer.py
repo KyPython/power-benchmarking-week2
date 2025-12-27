@@ -840,6 +840,102 @@ class UserAppAnalyzer:
                 f"     - Active app processes: User is actively using → Keep on P-cores"
             )
         
+        # The Ghost in the Machine: Why Elimination Provides Stable Baseline
+        # **The Question**: Why does eliminating cloudd provide more stable baseline
+        # than relocating it to E-cores? How does this affect Attribution Ratio?
+        #
+        # **The Problem with Relocation**:
+        # 1. **Variable Power Consumption**:
+        #    - cloudd on E-cores: 150-300 mW (varies with sync activity)
+        #    - Baseline fluctuates: 500 mW → 650 mW → 500 mW (unstable)
+        #    - Attribution Ratio calculation becomes inaccurate (baseline keeps changing)
+        #
+        # 2. **Bursty Behavior**:
+        #    - cloudd syncs in bursts (right-skewed distribution)
+        #    - When syncing: 300 mW on E-cores
+        #    - When idle: 50 mW on E-cores
+        #    - Baseline = mean of these values = 175 mW (but fluctuates)
+        #    - AR calculation: (App_Power - Baseline) / (Total - Baseline)
+        #    - If baseline fluctuates, AR becomes unreliable
+        #
+        # 3. **The "Ghost" Effect**:
+        #    - cloudd on E-cores still consumes power (even if less)
+        #    - This power "ghosts" into baseline measurements
+        #    - Baseline = 500 mW (system) + 175 mW (cloudd) = 675 mW
+        #    - But cloudd power varies → baseline varies → AR varies
+        #
+        # **The Solution: Elimination**:
+        # 1. **Stable Baseline**:
+        #    - Eliminate cloudd: 0 mW (completely stopped)
+        #    - Baseline = 500 mW (system only, stable)
+        #    - No variation → stable AR calculations
+        #
+        # 2. **Accurate Attribution**:
+        #    - AR = (App_Power - Baseline) / (Total - Baseline)
+        #    - Baseline = 500 mW (stable, no cloudd)
+        #    - App_Power = 2000 mW (your app)
+        #    - Total = 2500 mW (system + app)
+        #    - AR = (2000 - 500) / (2500 - 500) = 1500 / 2000 = 75% (accurate)
+        #
+        # 3. **No "Ghost" Effect**:
+        #    - Eliminated process = 0 mW (no power consumption)
+        #    - Baseline doesn't include eliminated process
+        #    - AR calculation is clean (no interference)
+        #
+        # **Why This Matters**:
+        # - Stable baseline → Accurate AR → Reliable power analysis
+        # - Unstable baseline → Inaccurate AR → Unreliable analysis
+        # - Elimination provides "clean" baseline for measurements
+        
+        if system_processes_to_eliminate:
+            recommendations.append(
+                f"\n👻 THE GHOST IN THE MACHINE: Why Elimination > Relocation"
+            )
+            recommendations.append(
+                f"   • Problem with Relocation:"
+            )
+            recommendations.append(
+                f"     - Relocated process still consumes power (varies with activity)"
+            )
+            recommendations.append(
+                f"     - Baseline fluctuates: 500 mW → 650 mW → 500 mW (unstable)"
+            )
+            recommendations.append(
+                f"     - Attribution Ratio becomes inaccurate (baseline keeps changing)"
+            )
+            recommendations.append(
+                f"     - The 'Ghost' Effect: Process power 'ghosts' into baseline"
+            )
+            recommendations.append(f"")
+            recommendations.append(
+                f"   • Solution: Elimination"
+            )
+            recommendations.append(
+                f"     - Eliminated process = 0 mW (completely stopped)"
+            )
+            recommendations.append(
+                f"     - Baseline = 500 mW (system only, stable)"
+            )
+            recommendations.append(
+                f"     - No variation → Stable AR calculations"
+            )
+            recommendations.append(
+                f"     - Accurate Attribution: AR = (App - Baseline) / (Total - Baseline)"
+            )
+            recommendations.append(f"")
+            recommendations.append(
+                f"   • Example:"
+            )
+            recommendations.append(
+                f"     - Relocation: Baseline = 500 + 175 (cloudd) = 675 mW (varies)"
+            )
+            recommendations.append(
+                f"     - Elimination: Baseline = 500 mW (stable)"
+            )
+            recommendations.append(
+                f"     - Result: Stable baseline → Accurate AR → Reliable analysis"
+            )
+        
         return recommendations
     
     def analyze_app(self, duration: int = 30, baseline_power: Optional[float] = None) -> Dict:

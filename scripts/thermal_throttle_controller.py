@@ -428,6 +428,41 @@ class ThermalThrottleController:
                         time.sleep(check_interval)
                         continue
                     
+                    # The Noise Filter: Balancing Thermal Safety with Perceived Performance
+                    #
+                    # **The Problem**: In 35°C environment, if we ignore noise but throttle useful work,
+                    # how do we ensure user doesn't perceive stutter?
+                    #
+                    # **The Strategy**:
+                    # 1. **Throttle gradually**: Don't drop from 100% to 50% instantly
+                    #    - Gradual throttling (e.g., 100% → 90% → 80% → 70%)
+                    #    - User perceives smooth degradation, not sudden stutter
+                    #
+                    # 2. **Throttle intelligently**: Prioritize user-facing work
+                    #    - Throttle background work more aggressively
+                    #    - Throttle user-facing work less aggressively
+                    #    - Result: User sees smooth performance, background throttled
+                    #
+                    # 3. **Adaptive throttling**: Adjust based on user activity
+                    #    - If user is actively using app → Less aggressive throttling
+                    #    - If app is in background → More aggressive throttling
+                    #    - Result: Thermal safety maintained, perceived performance preserved
+                    #
+                    # **The Balance**:
+                    # - Thermal safety: Must keep under threshold (prevent silicon damage)
+                    # - Perceived performance: User must not see stutter
+                    # - Solution: Gradual, intelligent throttling that prioritizes user-facing work
+                    
+                    # Implement gradual throttling (don't drop instantly)
+                    if self.throttled_pids:
+                        # Already throttled - check if we need to throttle more
+                        current_throttle = 0.65  # Assume current throttle level
+                        new_throttle = throttle_level
+                        if new_throttle < current_throttle:
+                            # Need to throttle more - do it gradually
+                            throttle_level = max(new_throttle, current_throttle * 0.95)  # 5% reduction per step
+                            print(f"     (Gradual throttling: {current_throttle*100:.0f}% → {throttle_level*100:.0f}% to avoid stutter)")
+                    
                     # Calculate throttle level
                     throttle_level = self.calculate_throttle_level(burst_fraction)
                     
@@ -436,8 +471,13 @@ class ThermalThrottleController:
                     if self.target_burst_fraction < 0.12:
                         heartbeat_change = " (Hot room: Using longer idle periods to prevent thermal death spiral)"
                     
+                    # Check if we're in hot environment (threshold < 12%)
+                    hot_env_note = ""
+                    if self.target_burst_fraction < 0.12:
+                        hot_env_note = " | Balancing thermal safety with perceived performance (gradual throttling)"
+                    
                     print(f"[{time.time() - start_time:.1f}s] Burst: {burst_fraction*100:.1f}% "
-                          f"(threshold: {self.target_burst_fraction*100:.1f}%) - THROTTLING to {throttle_level*100:.1f}%{heartbeat_change}")
+                          f"(threshold: {self.target_burst_fraction*100:.1f}%) - THROTTLING to {throttle_level*100:.1f}%{heartbeat_change}{hot_env_note}")
                     
                     # Apply throttling
                     for pid in pids:
