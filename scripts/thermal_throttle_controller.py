@@ -46,10 +46,50 @@ class ThermalThrottleController:
         self.throttled_pids = []
         
         # Component-specific cooling thresholds
+        # **The Physics of the 13% Limit: Heat Build vs. Dissipate Asymmetry**
+        #
+        # **Why 300ms build but 2000ms dissipate?**
+        #
+        # **Heat Build (Fast - 300ms)**:
+        # 1. **Joule Heating**: Power = I²R (current squared × resistance)
+        #    - When current flows through silicon, heat is generated instantly
+        #    - Heat generation rate = power consumption rate
+        #    - High power → rapid heat generation (300ms to reach critical temp)
+        # 2. **Thermal Mass**: Silicon has low thermal mass
+        #    - Small volume → heats up quickly
+        #    - Heat capacity: C = m × c (mass × specific heat)
+        #    - Low mass → small heat capacity → fast temperature rise
+        # 3. **Concentration**: Heat is generated in a small area (transistor junctions)
+        #    - Localized heat → high temperature gradient → fast buildup
+        #
+        # **Heat Dissipate (Slow - 2000ms)**:
+        # 1. **Thermal Diffusion**: Heat spreads through silicon → heat spreader → case → air
+        #    - Multiple thermal interfaces (silicon → TIM → heat spreader → air)
+        #    - Each interface has thermal resistance → slows heat flow
+        #    - Thermal resistance: R_th = L / (k × A) (length / (conductivity × area))
+        # 2. **Convection**: Heat must transfer to air (slowest step)
+        #    - Air has low thermal conductivity (0.025 W/m·K vs silicon's 150 W/m·K)
+        #    - Natural convection is slow (depends on temperature difference)
+        #    - Forced convection (fans) helps but still limited by air properties
+        # 3. **Thermal Time Constant**: τ = R_th × C_th
+        #    - Large thermal resistance × heat capacity = long time constant
+        #    - Time to cool = several time constants (2000ms = ~6.7 × 300ms)
+        #
+        # **The Asymmetry**:
+        # - **Build**: Direct conversion (electrical → thermal) in small volume → FAST
+        # - **Dissipate**: Multi-stage diffusion through interfaces → SLOW
+        # - **Ratio**: 2000ms / 300ms = 6.7× slower to dissipate than build
+        #
+        # **Why This Dictates Throttling Logic**:
+        # - If bursts occur faster than 2000ms, heat accumulates (can't dissipate)
+        # - Cooling threshold = build_time / (build_time + dissipate_time)
+        # - For ANE: 300ms / (300ms + 2000ms) = 13%
+        # - If burst fraction > 13%, bursts occur faster than cooling → throttling needed
+        
         self.cooling_thresholds = {
-            'ane': 0.13,   # 13% (300ms/2000ms)
-            'gpu': 0.14,   # 14% (500ms/3000ms)
-            'cpu': 0.14    # 14% (400ms/2500ms)
+            'ane': 0.13,   # 13% (300ms build / 2000ms dissipate = 6.7× asymmetry)
+            'gpu': 0.14,   # 14% (500ms build / 3000ms dissipate = 6× asymmetry)
+            'cpu': 0.14    # 14% (400ms build / 2500ms dissipate = 6.25× asymmetry)
         }
         
         # Use component-specific threshold if provided
@@ -223,6 +263,13 @@ class ThermalThrottleController:
         
         **The Duty Cycle of Heat**: Monitors burst fraction and throttles
         programmatically to keep it under the cooling threshold.
+        
+        **Physics-Based Throttling Logic**:
+        - Heat builds in 300ms (fast: direct electrical→thermal conversion)
+        - Heat dissipates in 2000ms (slow: multi-stage diffusion through interfaces)
+        - Asymmetry ratio: 6.7× slower to dissipate than build
+        - Cooling threshold: 13% = build_time / (build_time + dissipate_time)
+        - If burst fraction > 13%, bursts occur faster than cooling → throttling needed
         
         Args:
             duration: Total duration to run (seconds)

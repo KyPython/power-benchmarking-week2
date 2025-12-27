@@ -457,6 +457,16 @@ class AutomatedFeedbackLoop:
                     print(f"     - macOS scheduler is opportunistic: fills available P-cores")
                     print(f"     - When P-cores become free, other processes migrate to them")
                     print(f"     - This creates the trap: power moved, not eliminated")
+                    if sched.get('hidden_debt_analysis'):
+                        hd = sched['hidden_debt_analysis']
+                        print(f"   • Hidden Debt Analysis:")
+                        print(f"     {hd['interpretation']}")
+                        print(f"     - System processes: {hd['system_processes']}")
+                        print(f"     - UI processes: {hd['ui_processes']}")
+                        print(f"     - Other processes: {hd['other_processes']}")
+                    if sched.get('hidden_debt_explanation'):
+                        print(f"   • Insight: Your optimization wasn't a failure!")
+                        print(f"     {sched['hidden_debt_explanation']}")
                     if sched['p_core_processes']:
                         print(f"   • Processes now on P-cores:")
                         for proc in sched['p_core_processes'][:5]:

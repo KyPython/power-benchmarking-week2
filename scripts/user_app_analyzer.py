@@ -471,19 +471,43 @@ class UserAppAnalyzer:
         
         **Browser Forensics: Tab Suspender vs Task Policy**
         
-        For 8 background tabs draining battery:
+        **The "Work vs. Location" Decision**:
         
-        1. **Tab Suspender (Recommended)**:
-           - Suspends inactive tabs (stops JavaScript, pauses rendering)
-           - More effective: Actually stops work, not just moves it
-           - User-friendly: Tabs can be resumed when needed
-           - Power savings: 80-90% reduction per suspended tab
+        For 8 background tabs draining battery, why prioritize Tab Suspender over Task Policy?
         
-        2. **Task Policy (Alternative)**:
-           - Forces renderer processes to E-cores
-           - Less effective: Work still continues, just on different cores
-           - May trigger redistribution trap
-           - Power savings: 30-50% reduction per tab
+        **Fundamental Principle**: Stop work > Move work
+        
+        1. **Tab Suspender (Recommended - Stops Work)**:
+           - **What it does**: Suspends inactive tabs (stops JavaScript, pauses rendering)
+           - **Power savings**: 80-90% reduction per suspended tab
+           - **Why it works**: Eliminates work entirely
+             * JavaScript execution stops → no CPU cycles
+             * Rendering pauses → no GPU work
+             * Network requests pause → no I/O
+             * Memory usage drops → less memory controller activity
+           - **Result**: True power elimination (work doesn't happen)
+           - **User experience**: Tabs can be resumed when needed (work resumes)
+        
+        2. **Task Policy (Alternative - Moves Work)**:
+           - **What it does**: Forces renderer processes to E-cores
+           - **Power savings**: 30-50% reduction per tab
+           - **Why it's less effective**: Work still continues, just on different cores
+             * JavaScript still executes (on E-cores instead of P-cores)
+             * Rendering still happens (slower, but still happens)
+             * Network requests still occur (same I/O load)
+             * Memory usage unchanged (same memory controller activity)
+           - **Result**: Power redistribution (work moved, not eliminated)
+           - **Risk**: May trigger redistribution trap (other processes fill P-cores)
+        
+        **The Decision Logic**:
+        - **>5 tabs**: Tab Suspender (stops 8 tabs = eliminates 8× work)
+        - **<5 tabs**: Task Policy sufficient (moves 2-3 tabs = acceptable redistribution)
+        
+        **Why "Stop Work" > "Move Work"**:
+        - **Energy = Power × Time**: If work stops, energy = 0
+        - **Energy = Power × Time**: If work moves, energy = (lower power) × (same time)
+        - **Result**: Stopping work eliminates energy; moving work only reduces it
+        - **For 8 tabs**: 8× work elimination (Tab Suspender) > 8× work redistribution (Task Policy)
         
         **Decision Logic**:
         - If >5 renderer processes: Recommend tab suspender (more effective)
@@ -501,18 +525,31 @@ class UserAppAnalyzer:
         media_count = len(breakdown.get('media', []))
         
         # Tab Suspender vs Task Policy decision
+        # **The "Work vs. Location" Decision**: Stop work > Move work
         if renderer_count > 5:
             recommendations.append(
                 f"✅ RECOMMENDED: Use Tab Suspender for {renderer_count} background tabs"
             )
             recommendations.append(
-                f"   • Tab suspender stops JavaScript and pauses rendering"
+                f"   • Why Tab Suspender > Task Policy:"
+            )
+            recommendations.append(
+                f"     - Tab Suspender: Stops work (JavaScript, rendering, I/O) → 80-90% savings"
+            )
+            recommendations.append(
+                f"     - Task Policy: Moves work (to E-cores) → 30-50% savings"
+            )
+            recommendations.append(
+                f"     - For {renderer_count} tabs: Stop {renderer_count}× work > Move {renderer_count}× work"
             )
             recommendations.append(
                 f"   • Power savings: 80-90% per suspended tab (~{renderer_count * 50:.0f} mW)"
             )
             recommendations.append(
-                f"   • More effective than task policy (stops work vs. moves it)"
+                f"   • Energy = Power × Time: Stopping work → Energy = 0"
+            )
+            recommendations.append(
+                f"   • Energy = Power × Time: Moving work → Energy = (lower power) × (same time)"
             )
             recommendations.append(
                 f"   • Install: Safari Extensions → 'Tab Suspender' or similar"
