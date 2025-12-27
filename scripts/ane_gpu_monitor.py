@@ -438,10 +438,29 @@ class ANEGPUMonitor:
         return analysis
     
     def print_analysis(self, analysis: Dict):
-        """Print analysis results."""
+        """Print analysis results with thermal predictions."""
         print("\n" + "=" * 70)
         print("📊 ANE/GPU POWER ANALYSIS: Skewness & Attribution")
         print("=" * 70)
+        
+        # Print thermal predictions if available
+        if 'ane' in analysis and 'thermal_prediction' in analysis['ane']:
+            thermal = analysis['ane']['thermal_prediction']
+            print(f"\n🌡️  ANE Thermal Throttling Risk: {thermal['throttling_risk']}")
+            print(f"   {thermal['recommendation']}")
+            if thermal['burst_fraction']:
+                print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
+            print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
+        
+        if 'gpu' in analysis and 'thermal_prediction' in analysis['gpu']:
+            thermal = analysis['gpu']['thermal_prediction']
+            print(f"\n🌡️  GPU Thermal Throttling Risk: {thermal['throttling_risk']}")
+            print(f"   {thermal['recommendation']}")
+            if thermal['burst_fraction']:
+                print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
+            print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
+        
+        print()
         print()
         
         # Skewness Analysis
