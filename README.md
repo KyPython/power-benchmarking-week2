@@ -39,7 +39,16 @@ pip install -r requirements.txt
 
 3. **Run unified benchmark with power monitoring:**
    ```bash
+   # Test mode (30 seconds) - recommended for first run
    sudo python3 scripts/unified_benchmark.py --test 30
+   
+   # Full benchmark (runs until Ctrl+C)
+   sudo python3 scripts/unified_benchmark.py
+   ```
+
+4. **Test all components:**
+   ```bash
+   python3 scripts/test_full_integration.py
    ```
 
 ## 📊 Key Results
@@ -68,7 +77,8 @@ The Neural Engine provides a **57x speedup** for MobileNetV2 inference, demonstr
 - `analyze_power_data.py` - Calculate energy efficiency metrics
 
 ### Utilities
-- `test_components.py` - Verify all components are working correctly
+- `test_components.py` - Verify individual components
+- `test_full_integration.py` - Comprehensive integration test suite
 
 ## 📈 Example Workflows
 
@@ -96,6 +106,27 @@ python3 scripts/analyze_power_data.py 800 3000
 ## 🔌 Arduino Integration
 
 The suite includes Arduino support for external power monitoring. See `docs/ARDUINO.md` for setup instructions.
+
+**Quick Arduino Setup:**
+1. Upload `scripts/arduino_power_receiver.ino` to your Arduino
+2. Connect Arduino via USB
+3. Open Arduino Serial Monitor (115200 baud)
+4. Run the benchmark - power data will stream automatically
+
+## 🎨 Real-Time Visualization
+
+The enhanced `unified_benchmark.py` now includes:
+- **Live Statistics Display**: Real-time power metrics, inference throughput, and statistics
+- **Visual Power Bar**: Color-coded power level indicator
+- **Rich Terminal UI**: Beautiful, human-readable output (requires `rich` library)
+- **Summary Report**: Comprehensive statistics at the end of each run
+
+**Features:**
+- Current, Min, Max, Mean, Median power values
+- Inference count and throughput
+- Sample count and elapsed time
+- Arduino connection status
+- Automatic fallback to basic mode if `rich` is not installed
 
 ## 📁 Project Structure
 
