@@ -85,16 +85,47 @@ class ThermalThrottleController:
         # - Cooling threshold = build_time / (build_time + dissipate_time)
         # - For ANE: 300ms / (300ms + 2000ms) = 13%
         # - If burst fraction > 13%, bursts occur faster than cooling → throttling needed
+        #
+        # **The Silicon Recovery Time: Ambient Temperature Effects**
+        #
+        # **What happens if ambient temperature increases?**
+        # - Higher ambient → smaller temperature difference (ΔT) between silicon and air
+        # - Convection rate ∝ ΔT (smaller ΔT → slower convection)
+        # - Result: τ_dissipate increases (takes longer to cool)
+        #
+        # **Example**: If ambient increases by 10°C:
+        # - Original: τ_dissipate = 2000ms (at 25°C ambient)
+        # - New: τ_dissipate = 2500ms (at 35°C ambient, ~25% slower)
+        # - New cooling threshold: 300ms / (300ms + 2500ms) = 10.7%
+        # - **The 13% limit moves DOWN to ~11%** (more conservative)
+        #
+        # **Why the threshold moves**:
+        # - Higher ambient → slower dissipation → need more time between bursts
+        # - Lower threshold = more conservative = less burst time allowed
+        # - Formula: threshold = τ_build / (τ_build + τ_dissipate_ambient)
+        # - As τ_dissipate increases, threshold decreases
         
         self.cooling_thresholds = {
-            'ane': 0.13,   # 13% (300ms build / 2000ms dissipate = 6.7× asymmetry)
-            'gpu': 0.14,   # 14% (500ms build / 3000ms dissipate = 6× asymmetry)
-            'cpu': 0.14    # 14% (400ms build / 2500ms dissipate = 6.25× asymmetry)
+            'ane': 0.13,   # 13% (300ms build / 2000ms dissipate = 6.7× asymmetry, at 25°C ambient)
+            'gpu': 0.14,   # 14% (500ms build / 3000ms dissipate = 6× asymmetry, at 25°C ambient)
+            'cpu': 0.14    # 14% (400ms build / 2500ms dissipate = 6.25× asymmetry, at 25°C ambient)
         }
+        
+        # Ambient temperature adjustment (optional, for future enhancement)
+        self.ambient_temp_c = 25.0  # Default: 25°C (room temperature)
+        self.ambient_temp_factor = 1.0  # Adjustment factor based on ambient temp
         
         # Use component-specific threshold if provided
         if self.component in self.cooling_thresholds:
-            self.target_burst_fraction = self.cooling_thresholds[self.component]
+            base_threshold = self.cooling_thresholds[self.component]
+            # Adjust for ambient temperature (if ambient > 25°C, threshold decreases)
+            if self.ambient_temp_c > 25.0:
+                # Higher ambient → slower dissipation → lower threshold
+                # Rough estimate: 1% threshold decrease per 5°C above 25°C
+                temp_adjustment = (self.ambient_temp_c - 25.0) / 5.0 * 0.01
+                self.target_burst_fraction = max(0.05, base_threshold - temp_adjustment)
+            else:
+                self.target_burst_fraction = base_threshold
     
     def find_app_processes(self) -> List[int]:
         """Find PIDs for the application."""

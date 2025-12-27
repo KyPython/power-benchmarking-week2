@@ -509,6 +509,37 @@ class UserAppAnalyzer:
         - **Result**: Stopping work eliminates energy; moving work only reduces it
         - **For 8 tabs**: 8× work elimination (Tab Suspender) > 8× work redistribution (Task Policy)
         
+        **The Energy Elimination Proof: Why Stopping Work Prevents Redistribution Trap**
+        #
+        # **Why does stopping work prevent the macOS scheduler from "filling the gap"?**
+        #
+        # **The Redistribution Trap Mechanism**:
+        # 1. You free P-cores by moving a task to E-cores
+        # 2. macOS scheduler sees "free" P-cores
+        # 3. Scheduler immediately fills them with waiting processes
+        # 4. Result: Power redistributed, not eliminated
+        #
+        # **Why Tab Suspender Avoids This**:
+        # 1. **No P-cores freed**: Tab Suspender stops work, doesn't move it
+        #    - Renderer processes still exist (suspended, not moved)
+        #    - They're not using P-cores (stopped), but they're not "freed" either
+        #    - Scheduler doesn't see "free" P-cores → no redistribution
+        #
+        # 2. **Work eliminated, not relocated**:
+        #    - Tab Suspender: JavaScript stops, rendering pauses, I/O stops
+        #    - No work to redistribute (work doesn't exist)
+        #    - Task Policy: Work continues on E-cores (work relocated)
+        #    - Relocated work can still trigger redistribution (other processes fill P-cores)
+        #
+        # 3. **The Scheduler's Perspective**:
+        #    - **Task Policy**: "I see free P-cores, let me fill them" → Redistribution trap
+        #    - **Tab Suspender**: "I see suspended processes, but no free P-cores" → No trap
+        #
+        # **The Proof**:
+        # - Tab Suspender: Energy = 0 (work stopped) → No P-cores freed → No redistribution
+        # - Task Policy: Energy = (lower power) × (same time) → P-cores freed → Redistribution trap
+        # - Result: Stopping work eliminates the opportunity for redistribution
+        
         **Decision Logic**:
         - If >5 renderer processes: Recommend tab suspender (more effective)
         - If <5 renderer processes: Task policy may be sufficient
@@ -550,6 +581,15 @@ class UserAppAnalyzer:
             )
             recommendations.append(
                 f"   • Energy = Power × Time: Moving work → Energy = (lower power) × (same time)"
+            )
+            recommendations.append(
+                f"   • Energy Elimination Proof: Stopping work prevents redistribution trap"
+            )
+            recommendations.append(
+                f"     - Tab Suspender: No P-cores freed (work stopped, not moved) → No trap"
+            )
+            recommendations.append(
+                f"     - Task Policy: P-cores freed (work moved) → Scheduler fills them → Trap"
             )
             recommendations.append(
                 f"   • Install: Safari Extensions → 'Tab Suspender' or similar"
