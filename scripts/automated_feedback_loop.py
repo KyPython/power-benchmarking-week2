@@ -100,6 +100,10 @@ class AutomatedFeedbackLoop:
             power_tax > HIGH_TAX_THRESHOLD
         )
         
+        # Measure baseline and total system power for attribution calculation
+        baseline_power = self._measure_baseline_power(duration=5)
+        total_system_power = self._measure_total_system_power(duration=5)
+        
         result = {
             'daemon': self.daemon_name,
             'pids': pids,
@@ -108,8 +112,8 @@ class AutomatedFeedbackLoop:
             'burst_fraction': burst_fraction,
             'power_tax': power_tax,
             'issue_detected': issue_detected,
-            'baseline_power': self._measure_baseline_power(duration=5),
-            'total_system_power': self._measure_total_system_power(duration=5),
+            'baseline_power': baseline_power,
+            'total_system_power': total_system_power if total_system_power else (power_stats['mean_power'] + baseline_power),
             'timestamp': datetime.now().isoformat()
         }
         
