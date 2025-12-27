@@ -159,9 +159,128 @@ def calculate_ar_impact(baseline_power: float, stressed_power: float, power_tax:
     }
 
 
+def check_active_workload() -> Dict[str, float]:
+    """
+    Check if there's an active workload (legitimate power usage) vs just background.
+    
+    Returns:
+        Dictionary with CPU usage, process activity, etc.
+    """
+    try:
+        # Get overall CPU usage
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        
+        # Get top processes by CPU
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+            try:
+                proc.info['cpu_percent'] = proc.cpu_percent(interval=0.0)
+                if proc.info['cpu_percent'] > 1.0:  # Only significant processes
+                    processes.append(proc.info)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # Sort by CPU usage
+        processes.sort(key=lambda x: x.get('cpu_percent', 0), reverse=True)
+        top_processes = processes[:5]  # Top 5
+        
+        # Check for common workload indicators
+        workload_indicators = ['python', 'node', 'chrome', 'safari', 'xcode', 'ffmpeg', 
+                              'docker', 'java', 'go', 'rust', 'cargo']
+        has_workload = any(
+            any(indicator in proc.get('name', '').lower() for indicator in workload_indicators)
+            for proc in top_processes
+        )
+        
+        return {
+            'cpu_percent': cpu_percent,
+            'top_processes': top_processes,
+            'has_active_workload': has_workload,
+            'workload_cpu_percent': sum(p.get('cpu_percent', 0) for p in top_processes[:3])
+        }
+    except Exception as e:
+        return {
+            'cpu_percent': 0.0,
+            'top_processes': [],
+            'has_active_workload': False,
+            'workload_cpu_percent': 0.0,
+            'error': str(e)
+        }
+
+
+def distinguish_legitimate_vs_wasted(baseline_power: float, workload_info: Dict) -> Dict[str, any]:
+    """
+    Distinguish between legitimate workload power and wasted P-core leakage.
+    
+    Logic:
+    - If CPU usage > 20%: Likely legitimate workload
+    - If CPU usage < 10% but baseline > 800 mW: Likely wasted (P-core leakage)
+    - If daemons on P-cores: Calculate wasted portion
+    - If active workload: Calculate legitimate portion
+    
+    Returns:
+        Dictionary with breakdown of legitimate vs wasted power
+    """
+    cpu_percent = workload_info.get('cpu_percent', 0.0)
+    has_workload = workload_info.get('has_active_workload', False)
+    workload_cpu = workload_info.get('workload_cpu_percent', 0.0)
+    
+    # Typical idle power (E-cores only)
+    typical_idle = 500.0  # mW
+    
+    # Estimate legitimate power based on CPU usage
+    # Rule of thumb: 1% CPU ≈ 10-20 mW on Apple Silicon
+    # High CPU (>20%) suggests legitimate workload
+    if cpu_percent > 20.0:
+        # Significant CPU usage - likely legitimate
+        estimated_legitimate = typical_idle + (cpu_percent * 15.0)  # 15 mW per % CPU
+        estimated_legitimate = min(estimated_legitimate, baseline_power * 0.9)  # Cap at 90%
+        estimated_wasted = baseline_power - estimated_legitimate
+        classification = "legitimate_workload"
+    elif cpu_percent > 10.0:
+        # Moderate CPU - mixed
+        estimated_legitimate = typical_idle + (cpu_percent * 10.0)
+        estimated_legitimate = min(estimated_legitimate, baseline_power * 0.7)
+        estimated_wasted = baseline_power - estimated_legitimate
+        classification = "mixed"
+    else:
+        # Low CPU but high baseline - likely wasted
+        estimated_legitimate = typical_idle
+        estimated_wasted = baseline_power - estimated_legitimate
+        classification = "likely_wasted"
+    
+    # Check daemons on P-cores to refine estimate
+    daemon_status = check_daemons_on_p_cores()
+    total_tax = sum(
+        status['estimated_tax_mw'] 
+        for status in daemon_status.values() 
+        if status['on_p_cores']
+    )
+    
+    # Refine wasted estimate based on actual P-core tax
+    if total_tax > 0:
+        # We know some power is wasted (P-core tax)
+        # Adjust wasted estimate to account for known tax
+        estimated_wasted = max(estimated_wasted, total_tax * 0.8)  # At least 80% of tax is wasted
+        estimated_legitimate = baseline_power - estimated_wasted
+    
+    return {
+        'baseline_power_mw': baseline_power,
+        'cpu_percent': cpu_percent,
+        'has_active_workload': has_workload,
+        'classification': classification,
+        'estimated_legitimate_mw': estimated_legitimate,
+        'estimated_wasted_mw': estimated_wasted,
+        'wasted_percent': (estimated_wasted / baseline_power * 100) if baseline_power > 0 else 0,
+        'known_pcore_tax_mw': total_tax,
+        'typical_idle_mw': typical_idle
+    }
+
+
 def analyze_baseline(baseline_power: float, stressed_power: Optional[float] = None) -> Dict:
     """
     Analyze baseline power and provide intelligent warnings.
+    Now distinguishes between legitimate workload and wasted P-core leakage.
     
     Returns:
         Dictionary with analysis results and warnings
@@ -172,14 +291,50 @@ def analyze_baseline(baseline_power: float, stressed_power: Optional[float] = No
         'daemons_on_p_cores': {},
         'total_estimated_tax_mw': 0.0,
         'warnings': [],
-        'recommendations': []
+        'recommendations': [],
+        'workload_info': {},
+        'power_breakdown': {}
     }
+    
+    # Check for active workload to distinguish legitimate vs wasted
+    workload_info = check_active_workload()
+    analysis['workload_info'] = workload_info
+    
+    # Distinguish legitimate workload vs wasted P-core leakage
+    power_breakdown = distinguish_legitimate_vs_wasted(baseline_power, workload_info)
+    analysis['power_breakdown'] = power_breakdown
     
     # Check if baseline is high
     if analysis['high_baseline']:
         analysis['warnings'].append(
             f"⚠️  High baseline power detected: {baseline_power:.1f} mW "
             f"(threshold: 800 mW)"
+        )
+        
+        # Add workload classification
+        classification = power_breakdown['classification']
+        if classification == "legitimate_workload":
+            analysis['warnings'].append(
+                f"✅ Active workload detected (CPU: {workload_info['cpu_percent']:.1f}%) - "
+                f"baseline likely legitimate"
+            )
+        elif classification == "likely_wasted":
+            analysis['warnings'].append(
+                f"⚠️  Low CPU usage ({workload_info['cpu_percent']:.1f}%) but high baseline - "
+                f"likely wasted P-core leakage"
+            )
+        else:
+            analysis['warnings'].append(
+                f"ℹ️  Mixed workload (CPU: {workload_info['cpu_percent']:.1f}%) - "
+                f"both legitimate and wasted components"
+            )
+        
+        # Add power breakdown
+        analysis['warnings'].append(
+            f"📊 Power Breakdown: "
+            f"Legitimate: {power_breakdown['estimated_legitimate_mw']:.1f} mW, "
+            f"Wasted: {power_breakdown['estimated_wasted_mw']:.1f} mW "
+            f"({power_breakdown['wasted_percent']:.1f}%)"
         )
         
         # Check daemons
