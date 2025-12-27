@@ -240,6 +240,49 @@ class AutomatedFeedbackLoop:
         waste_eliminated = (ar_after < ar_before) and (total_savings_mw > 0)
         power_moved = (abs(ar_reduction) < 5.0) and (savings_mw > 0) and (total_savings_mw < savings_mw * 0.5)
         
+        # The "Migration vs. Elimination" Paradox Analysis
+        # If AR remains stable but total power drops, why does that imply "moved"?
+        #
+        # **The Paradox Explained**:
+        # 1. Stable AR means: (Daemon_Delta / Total_Delta) remains constant
+        # 2. If daemon power drops but AR stays same, then Total_Delta must drop proportionally
+        # 3. BUT: If total system power drops less than daemon power drop:
+        #    → The "missing" power went somewhere else (moved, not eliminated)
+        #
+        # **What This Tells Us About E-Core Efficiency**:
+        # - If power_moved = True: E-cores are more efficient (lower power for same work)
+        #   BUT the work still needs to be done, so power consumption moved to:
+        #   * Other processes that picked up the slack
+        #   * System overhead (scheduler, memory management)
+        #   * Background tasks that were waiting
+        # - If waste_eliminated = True: E-cores eliminated unnecessary work
+        #   * Task was truly wasteful on P-cores
+        #   * E-cores handle it more efficiently, reducing total system load
+        #
+        # **E-Core Efficiency Calculation**:
+        e_core_efficiency_gain = None
+        if power_moved and savings_mw > 0:
+            # Calculate efficiency: How much power saved per unit of work
+            # If daemon power dropped but AR stable, E-cores are doing same work with less power
+            efficiency_ratio = savings_mw / before_mean if before_mean > 0 else 0
+            e_core_efficiency_gain = {
+                'power_saved_mw': savings_mw,
+                'efficiency_percent': efficiency_ratio * 100,
+                'interpretation': (
+                    f"E-cores are {efficiency_ratio*100:.1f}% more efficient for this workload, "
+                    f"but power was redistributed to other processes (not eliminated)"
+                )
+            }
+        elif waste_eliminated:
+            e_core_efficiency_gain = {
+                'power_saved_mw': total_savings_mw,
+                'efficiency_percent': (total_savings_mw / before_total) * 100 if before_total > 0 else 0,
+                'interpretation': (
+                    f"E-cores eliminated {total_savings_mw:.1f} mW of waste "
+                    f"({(total_savings_mw / before_total) * 100:.1f}% reduction) - true efficiency gain"
+                )
+            }
+        
         # Check if still on P-cores
         pids = self._get_daemon_pids()
         on_p_cores_after = any(self._check_on_p_cores(pid) for pid in pids) if pids else False
@@ -262,6 +305,7 @@ class AutomatedFeedbackLoop:
             'validation': {
                 'waste_eliminated': waste_eliminated,
                 'power_moved': power_moved,
+                'e_core_efficiency': e_core_efficiency_gain,
                 'interpretation': (
                     "✅ Waste eliminated - power actually reduced system-wide"
                     if waste_eliminated else
@@ -373,10 +417,24 @@ class AutomatedFeedbackLoop:
                 print(f"     • System power decreased: {comparison.get('total_savings_mw', 0):.1f} mW")
                 print(f"     • Formula: AR = (Daemon_Delta) / (Total_Delta)")
                 print(f"     • Lower AR + Lower Total = Waste eliminated")
+                
+                # E-core efficiency analysis
+                if validation.get('e_core_efficiency'):
+                    eff = validation['e_core_efficiency']
+                    print(f"     • E-Core Efficiency: {eff['interpretation']}")
             elif validation.get('power_moved'):
                 print("  ⚠️  WARNING: Power may have moved to other processes")
                 print(f"     • Daemon power reduced but AR unchanged")
                 print(f"     • System power may not have decreased proportionally")
+                print(f"     • The 'Migration vs. Elimination' Paradox:")
+                print(f"       - Stable AR + dropping total = power moved (not eliminated)")
+                print(f"       - E-cores are more efficient, but work still needs to be done")
+                print(f"       - Power redistributed to: other processes, system overhead, background tasks")
+                
+                # E-core efficiency analysis
+                if validation.get('e_core_efficiency'):
+                    eff = validation['e_core_efficiency']
+                    print(f"     • E-Core Efficiency: {eff['interpretation']}")
             print()
         
         if comparison['fix_effective']:

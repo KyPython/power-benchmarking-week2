@@ -41,28 +41,101 @@ class UserAppAnalyzer:
         """
         Find all processes belonging to the application.
         
+        **The WebKit Iceberg: Unmasking Hidden Processes**
+        
+        For Safari specifically, this finds:
+        - Main Safari process
+        - WebKit renderer processes (one per tab)
+        - Extension processes (ad blockers, password managers)
+        - Media processes (video decoding, audio)
+        - Network processes (DNS, HTTP/2, WebSocket)
+        
         Returns:
             List of process dictionaries with PID, name, and CPU usage
         """
         processes = []
         
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info']):
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'ppid', 'cmdline']):
             try:
                 proc_info = proc.info
                 proc_name = proc_info['name'].lower()
+                cmdline = ' '.join(proc_info.get('cmdline', [])).lower()
                 
                 # Match app name (flexible matching)
-                if self.app_name.lower() in proc_name or proc_name in self.app_name.lower():
+                app_match = (
+                    self.app_name.lower() in proc_name or
+                    proc_name in self.app_name.lower() or
+                    self.app_name.lower() in cmdline
+                )
+                
+                # For Safari, also match WebKit processes
+                if 'safari' in self.app_name.lower():
+                    webkit_match = (
+                        'webkit' in proc_name or
+                        'com.apple.webkit' in cmdline or
+                        'safari' in proc_name
+                    )
+                    app_match = app_match or webkit_match
+                
+                if app_match:
                     processes.append({
                         'pid': proc_info['pid'],
                         'name': proc_info['name'],
                         'cpu_percent': proc_info.get('cpu_percent', 0.0),
-                        'memory_mb': proc_info.get('memory_info', {}).get('rss', 0) / 1024 / 1024
+                        'memory_mb': proc_info.get('memory_info', {}).get('rss', 0) / 1024 / 1024,
+                        'ppid': proc_info.get('ppid'),
+                        'cmdline': proc_info.get('cmdline', [])
                     })
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
         return processes
+    
+    def breakdown_webkit_processes(self, processes: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Break down WebKit processes by type to identify hidden processes.
+        
+        **The WebKit Iceberg**: Safari splits into multiple process types:
+        - Main process (Safari.app)
+        - Renderer processes (one per tab)
+        - Extension processes (ad blockers, password managers)
+        - Media processes (video decoding, audio)
+        - Network processes (DNS, HTTP/2, WebSocket)
+        
+        Returns:
+            Dictionary mapping process types to process lists
+        """
+        breakdown = {
+            'main': [],
+            'renderer': [],
+            'extension': [],
+            'media': [],
+            'network': [],
+            'other': []
+        }
+        
+        for proc in processes:
+            name = proc['name'].lower()
+            cmdline = ' '.join(proc.get('cmdline', [])).lower()
+            
+            # Classify process type
+            if 'safari' in name and 'webkit' not in name:
+                breakdown['main'].append(proc)
+            elif 'webkit' in name or 'com.apple.webkit' in cmdline:
+                if 'renderer' in cmdline or 'webcontent' in cmdline:
+                    breakdown['renderer'].append(proc)
+                elif 'extension' in cmdline or 'xpc' in cmdline:
+                    breakdown['extension'].append(proc)
+                elif 'media' in cmdline or 'audio' in cmdline or 'video' in cmdline:
+                    breakdown['media'].append(proc)
+                elif 'network' in cmdline or 'dns' in cmdline or 'http' in cmdline:
+                    breakdown['network'].append(proc)
+                else:
+                    breakdown['renderer'].append(proc)  # Default WebKit = renderer
+            else:
+                breakdown['other'].append(proc)
+        
+        return breakdown
     
     def measure_app_power(
         self,
@@ -415,6 +488,20 @@ class UserAppAnalyzer:
             print("  ⚠️  Could not collect power data")
             return {}
         
+        # Break down processes by type (for WebKit/Safari)
+        processes = power_data.get('processes', [])
+        if 'safari' in self.app_name.lower():
+            process_breakdown = self.breakdown_webkit_processes(processes)
+            print(f"\n🕵️‍♂️  WebKit Process Breakdown:")
+            for proc_type, proc_list in process_breakdown.items():
+                if proc_list:
+                    print(f"  {proc_type.capitalize()}: {len(proc_list)} process(es)")
+                    for proc in proc_list[:3]:  # Show first 3
+                        print(f"    - {proc['name']} (PID: {proc['pid']}, CPU: {proc['cpu_percent']:.1f}%)")
+                    if len(proc_list) > 3:
+                        print(f"    ... and {len(proc_list) - 3} more")
+            power_data['process_breakdown'] = process_breakdown
+        
         # Calculate attribution
         attribution = self.calculate_attribution_ratio(
             power_data['total_power'],
@@ -428,8 +515,40 @@ class UserAppAnalyzer:
         # Identify waste
         waste_indicators = self.identify_hidden_waste({
             'attribution_ratio': attribution.get('attribution_ratio', 0),
-            'skewness': skewness
+            'skewness': skewness,
+            'app_name': self.app_name
         })
+        
+        # PID-based process breakdown for unmasking hidden processes
+        if 'safari' in self.app_name.lower() and 'process_breakdown' in power_data:
+            breakdown = power_data['process_breakdown']
+            unattributed_power = (1 - attribution.get('attribution_ratio', 0)) * 100
+            
+            if unattributed_power > 70:
+                print(f"\n🕵️‍♂️  UNMASKING HIDDEN PROCESSES (>70% unattributed):")
+                print(f"   Total unattributed: {unattributed_power:.1f}%")
+                print(f"   Process breakdown:")
+                
+                # Estimate power per process type (heuristic based on count and CPU)
+                total_cpu = sum(p['cpu_percent'] for p in processes)
+                for proc_type, proc_list in breakdown.items():
+                    if proc_list:
+                        type_cpu = sum(p['cpu_percent'] for p in proc_list)
+                        estimated_power_pct = (type_cpu / total_cpu * 100) if total_cpu > 0 else 0
+                        estimated_power_mw = (estimated_power_pct / 100) * unattributed_power * attribution.get('mean_total_power_mw', 0) / 100
+                        
+                        print(f"     • {proc_type.capitalize()}: {len(proc_list)} process(es)")
+                        print(f"       Estimated: {estimated_power_pct:.1f}% CPU, ~{estimated_power_mw:.1f} mW")
+                        
+                        # Identify likely culprit
+                        if proc_type == 'renderer' and len(proc_list) > 5:
+                            print(f"       ⚠️  LIKELY CULPRIT: {len(proc_list)} background tabs consuming power")
+                        elif proc_type == 'extension' and len(proc_list) > 2:
+                            print(f"       ⚠️  LIKELY CULPRIT: {len(proc_list)} extensions running continuously")
+                        elif proc_type == 'media' and len(proc_list) > 0:
+                            print(f"       ⚠️  LIKELY CULPRIT: Media processes (video/audio) still active")
+                
+                print(f"\n   💡 Recommendation: Close unused tabs, disable extensions, check Activity Monitor")
         
         # Build analysis result
         analysis = {
@@ -440,7 +559,8 @@ class UserAppAnalyzer:
             'attribution': attribution,
             'skewness': skewness,
             'waste_indicators': waste_indicators,
-            'processes': power_data.get('processes', [])
+            'processes': power_data.get('processes', []),
+            'process_breakdown': power_data.get('process_breakdown', {})
         }
         
         # Print results

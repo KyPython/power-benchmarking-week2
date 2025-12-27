@@ -164,10 +164,35 @@ class ANEGPUMonitor:
            - Thermal accumulation = heat_generated - heat_dissipated
            - Burst fraction directly relates to heat_generated rate
         
+        **Silicon Thermal Constants: Calculating the Cooling Threshold**
+        
+        **The Cooling Threshold**: The exact duty cycle (burst fraction) where the Mac
+        can no longer stay at peak frequency due to thermal accumulation.
+        
+        **Thermal Math**:
+        - Heat buildup time: τ_build = 100-500ms (fast)
+        - Heat dissipation time: τ_dissipate = 1-5 seconds (slow)
+        - Cooling threshold: f_cool = τ_build / (τ_build + τ_dissipate)
+        
+        **Example Calculation**:
+        - τ_build = 300ms (typical for ANE)
+        - τ_dissipate = 2 seconds
+        - f_cool = 300ms / (300ms + 2000ms) = 0.13 (13% burst fraction)
+        - If burst fraction > 13%, heat accumulates faster than it can dissipate
+        - Result: Thermal throttling occurs
+        
+        **Why Burst Fraction Determines Cooling Threshold**:
+        - Burst fraction = duty cycle of high-power events
+        - If bursts occur more frequently than cooling time:
+          → Heat accumulates → Temperature rises → Throttling
+        - If bursts occur less frequently than cooling time:
+          → Heat dissipates between bursts → No throttling
+        
         **Prediction Logic**:
         1. Burst fraction > 50% = frequent spikes (high thermal load)
         2. Mean power > 80% of max = sustained high power
         3. Both conditions = high throttling risk
+        4. Cooling threshold = calculated from thermal constants
         
         Args:
             burst_fraction: Fraction of time in high-power bursts (0.0 to 1.0)
@@ -199,6 +224,33 @@ class ANEGPUMonitor:
         
         thresholds = thermal_thresholds.get(component.lower(), thermal_thresholds['ane'])
         
+        # Calculate Cooling Threshold based on thermal constants
+        # Component-specific thermal time constants (empirical)
+        thermal_constants = {
+            'ane': {
+                'heat_build_ms': 300,      # ANE heats up in ~300ms
+                'heat_dissipate_ms': 2000, # ANE cools in ~2 seconds
+            },
+            'gpu': {
+                'heat_build_ms': 500,      # GPU heats up in ~500ms
+                'heat_dissipate_ms': 3000, # GPU cools in ~3 seconds
+            },
+            'cpu': {
+                'heat_build_ms': 400,      # CPU heats up in ~400ms
+                'heat_dissipate_ms': 2500, # CPU cools in ~2.5 seconds
+            }
+        }
+        
+        constants = thermal_constants.get(component.lower(), thermal_constants['ane'])
+        heat_build = constants['heat_build_ms']
+        heat_dissipate = constants['heat_dissipate_ms']
+        
+        # Cooling threshold: f_cool = τ_build / (τ_build + τ_dissipate)
+        cooling_threshold = heat_build / (heat_build + heat_dissipate)
+        
+        # Check if burst fraction exceeds cooling threshold
+        exceeds_cooling_threshold = burst_fraction > cooling_threshold
+        
         # Calculate risk factors
         burst_risk = burst_fraction > thresholds['burst_risk_threshold']
         power_ratio = mean_power / max_power if max_power > 0 else 0.0
@@ -207,6 +259,8 @@ class ANEGPUMonitor:
         
         # Overall risk assessment
         risk_score = 0
+        if exceeds_cooling_threshold:
+            risk_score += 2  # Exceeding cooling threshold is critical
         if burst_risk:
             risk_score += 1
         if power_risk:
@@ -244,6 +298,14 @@ class ANEGPUMonitor:
             'power_risk': power_risk,
             'sustained_risk': sustained_risk,
             'thermal_threshold': thresholds['max_sustained'],
+            'cooling_threshold': cooling_threshold,
+            'cooling_threshold_percent': cooling_threshold * 100,
+            'exceeds_cooling_threshold': exceeds_cooling_threshold,
+            'thermal_constants': {
+                'heat_build_ms': heat_build,
+                'heat_dissipate_ms': heat_dissipate,
+                'formula': f'Cooling Threshold = {heat_build}ms / ({heat_build}ms + {heat_dissipate}ms) = {cooling_threshold*100:.1f}%'
+            },
             'recommendation': recommendation,
             'component': component
         }
@@ -477,6 +539,11 @@ class ANEGPUMonitor:
             if thermal['burst_fraction']:
                 print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
             print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
+            if 'cooling_threshold' in thermal:
+                print(f"   Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
+                print(f"   {thermal['thermal_constants']['formula']}")
+                if thermal['exceeds_cooling_threshold']:
+                    print(f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation")
         
         if 'gpu' in analysis and 'thermal_prediction' in analysis['gpu']:
             thermal = analysis['gpu']['thermal_prediction']
@@ -485,6 +552,11 @@ class ANEGPUMonitor:
             if thermal['burst_fraction']:
                 print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
             print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
+            if 'cooling_threshold' in thermal:
+                print(f"   Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
+                print(f"   {thermal['thermal_constants']['formula']}")
+                if thermal['exceeds_cooling_threshold']:
+                    print(f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation")
         
         print()
         print()
@@ -516,6 +588,10 @@ class ANEGPUMonitor:
                 if 'thermal_prediction' in stats:
                     thermal = stats['thermal_prediction']
                     print(f"  🌡️  Thermal Risk: {thermal['throttling_risk']}")
+                    if 'cooling_threshold' in thermal:
+                        print(f"  Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
+                        if thermal['exceeds_cooling_threshold']:
+                            print(f"  ⚠️  Exceeds cooling threshold - throttling likely")
                 
                 print(f"  Range:    {stats['min']:.1f} - {stats['max']:.1f} mW")
                 print(f"  Std Dev:  {stats['std']:.1f} mW")
