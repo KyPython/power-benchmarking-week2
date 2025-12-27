@@ -265,6 +265,31 @@ class ThermalThrottleController:
         """
         Calculate throttle level needed to bring burst fraction under threshold.
         
+        **The Thermal Death Spiral: Adapting to Hot Environments**
+        
+        When threshold drops to 11% (in hot room), the controller must decide:
+        - **Longer idle periods**: Reduce burst frequency (more time between bursts)
+        - **Shorter bursts**: Reduce burst duration (same frequency, shorter bursts)
+        
+        **The Decision Logic**:
+        - If current burst > threshold: Calculate required reduction
+        - Throttle level determines how much to reduce CPU usage
+        - Lower throttle level = more aggressive throttling = longer idle periods
+        - The "heartbeat" of the app slows down (longer pauses between work)
+        
+        **Example (Hot Room - 35°C)**:
+        - Threshold drops from 13% to 11% (more conservative)
+        - Current burst: 20% (exceeds 11% threshold)
+        - Required reduction: 11% / 20% = 0.55 (throttle to 55% CPU)
+        - Result: App "heartbeat" slows - longer idle periods between bursts
+        - Silicon gets more time to cool between bursts (prevents "choking")
+        
+        **Why Longer Idle Periods vs Shorter Bursts?**:
+        - **Longer idle periods**: More time for heat dissipation (better for hot environments)
+        - **Shorter bursts**: Less heat generated per burst (but frequency unchanged)
+        - **Controller choice**: Uses longer idle periods (throttle reduces CPU, creating gaps)
+        - **Result**: App runs in "pulses" with cooling gaps (prevents thermal death spiral)
+        
         Formula: throttle_level = target_burst / current_burst
         
         Args:
@@ -281,6 +306,12 @@ class ThermalThrottleController:
         
         # Clamp to reasonable range (don't throttle below 10%)
         throttle_level = max(0.1, min(1.0, required_reduction))
+        
+        # The Thermal Death Spiral: In hot environments, be more aggressive
+        # If threshold is very low (hot room), use longer idle periods
+        if self.target_burst_fraction < 0.12:  # Threshold dropped due to heat
+            # More aggressive throttling = longer idle periods
+            throttle_level = max(0.1, throttle_level * 0.9)  # 10% more aggressive
         
         return throttle_level
     
@@ -358,8 +389,13 @@ class ThermalThrottleController:
                     # Calculate throttle level
                     throttle_level = self.calculate_throttle_level(burst_fraction)
                     
+                    # The Thermal Death Spiral: Explain the heartbeat change
+                    heartbeat_change = ""
+                    if self.target_burst_fraction < 0.12:
+                        heartbeat_change = " (Hot room: Using longer idle periods to prevent thermal death spiral)"
+                    
                     print(f"[{time.time() - start_time:.1f}s] Burst: {burst_fraction*100:.1f}% "
-                          f"(threshold: {self.target_burst_fraction*100:.1f}%) - THROTTLING to {throttle_level*100:.1f}%")
+                          f"(threshold: {self.target_burst_fraction*100:.1f}%) - THROTTLING to {throttle_level*100:.1f}%{heartbeat_change}")
                     
                     # Apply throttling
                     for pid in pids:
