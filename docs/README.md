@@ -81,5 +81,35 @@ Each document:
 - ✅ Provides value to target audience
 - ✅ Follows SRP (one clear responsibility)
 
-**Total**: 10 documentation files (plus root README.md), all serving distinct, long-term purposes.
+**Total**: 12 documentation files (plus root README.md), all serving distinct, long-term purposes.
+
+## Documentation Count Verification
+
+**Root (1):**
+- README.md
+
+**Public Docs (4):**
+- PERFORMANCE.md
+- ARDUINO.md
+- QUICK_REFERENCE.md
+- VISUAL_GUIDE.md
+
+**Technical Docs (8):**
+- docs/README.md (this file - index)
+- ARCHITECTURE.md
+- TECHNICAL_DEEP_DIVE.md
+- VALIDATION.md
+- INTELLIGENT_ENHANCEMENTS.md
+- ENHANCEMENTS.md
+- ADVANCED_FEATURES.md
+- ADVANCED_CONCEPTS.md
+
+**Distinction Between Similar Docs:**
+- **ADVANCED_FEATURES.md**: Usage guide for three new features (adversarial, profiling, ANE/GPU) - "How to use"
+- **ADVANCED_CONCEPTS.md**: Deep technical explanations (universality, signal lifecycle, data-to-decisions) - "Why it works"
+- **TECHNICAL_DEEP_DIVE.md**: General advanced concepts (non-blocking I/O, power attribution, statistics) - Broad reference
+- **INTELLIGENT_ENHANCEMENTS.md**: AI-powered features (adaptive baseline, divergence dashboard, kernel resilience) - Feature documentation
+- **ENHANCEMENTS.md**: Historical script improvements (power_logger, visualizer, analyzer) - Evolution history
+
+All serve distinct purposes and remain valuable long-term.
 
