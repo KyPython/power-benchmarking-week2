@@ -193,6 +193,9 @@ class LongTermProfiler:
             
             tax = self.measure_daemon_power_tax(daemon, duration=5)
             
+            # Measure daemon power for skewness analysis
+            daemon_power = self._measure_daemon_power(daemon, duration=5)
+            
             snapshot['daemons'][daemon] = {
                 'pids': pids,
                 'instance_count': len(pids),
@@ -200,12 +203,88 @@ class LongTermProfiler:
                 'on_p_cores': tax > 0
             }
             
+            # Add power statistics if available
+            if daemon_power:
+                snapshot['daemons'][daemon].update(daemon_power)
+                
+                # Calculate burst fraction if right-skewed
+                if 'mean_power' in daemon_power and 'median_power' in daemon_power:
+                    mean_p = daemon_power['mean_power']
+                    median_p = daemon_power['median_power']
+                    
+                    if mean_p > median_p:  # Right-skewed
+                        low_p = daemon_power.get('min_power', 0)
+                        high_p = daemon_power.get('max_power', 0)
+                        
+                        if high_p > low_p:
+                            burst_fraction = self.calculate_burst_fraction(
+                                mean_p, median_p, low_p, high_p
+                            )
+                            if burst_fraction is not None:
+                                snapshot['daemons'][daemon]['burst_fraction'] = burst_fraction
+                                snapshot['daemons'][daemon]['burst_percent'] = burst_fraction * 100
+                                print(f"  📊 {daemon}: {burst_fraction*100:.1f}% burst fraction (right-skewed)")
+            
             if tax > 0:
                 print(f"  ⚠️  {daemon}: {tax:.1f} mW tax ({len(pids)} instance(s))")
             else:
                 print(f"  ✅ {daemon}: On E-cores (no tax)")
         
         return snapshot
+    
+    def _measure_daemon_power(self, daemon_name: str, duration: int = 5) -> Optional[Dict]:
+        """
+        Measure power statistics for a specific daemon.
+        
+        Returns:
+            Dictionary with power statistics (mean, median, min, max)
+        """
+        pids = self.get_daemon_pids(daemon_name)
+        if not pids:
+            return None
+        
+        # Use powermetrics with process filtering
+        cmd = [
+            'sudo', 'powermetrics',
+            '--samplers', 'cpu_power',
+            '-i', '500',
+            '-n', str(int(duration * 1000 / 500)),
+            '--show-process-coalition'
+        ]
+        
+        power_values = []
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            output, error = process.communicate(timeout=duration + 5)
+            
+            # Parse power values for this daemon
+            for line in output.split('\n'):
+                # Check if line contains this daemon
+                if daemon_name.lower() in line.lower():
+                    # Extract power values
+                    power_match = re.search(r'([\d.]+)\s*mW', line)
+                    if power_match:
+                        power_values.append(float(power_match.group(1)))
+            
+            if power_values and len(power_values) >= 3:
+                return {
+                    'mean_power': statistics.mean(power_values),
+                    'median_power': statistics.median(power_values),
+                    'min_power': min(power_values),
+                    'max_power': max(power_values),
+                    'samples': len(power_values)
+                }
+        except Exception:
+            pass
+        
+        return None
     
     def save_snapshot(self, snapshot: Dict):
         """Save snapshot to file."""
