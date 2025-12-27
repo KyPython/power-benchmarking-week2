@@ -45,6 +45,9 @@ All documentation follows the **Single Responsibility Principle (SRP)** - each f
 - **[ENHANCEMENTS.md](ENHANCEMENTS.md)** - Historical script enhancements  
   *Purpose*: Documents evolution of power_logger, power_visualizer, and app_power_analyzer scripts
 
+- **[ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)** - Advanced features extending the suite  
+  *Purpose*: Adversarial benchmark, long-term efficiency profiling, ANE/GPU monitoring with statistical analysis
+
 ---
 
 ## Navigation Guide

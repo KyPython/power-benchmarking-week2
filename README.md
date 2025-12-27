@@ -80,6 +80,11 @@ The Neural Engine provides a **57x speedup** for MobileNetV2 inference, demonstr
 - `test_components.py` - Verify individual components
 - `test_full_integration.py` - Comprehensive integration test suite
 
+### Advanced Features
+- `adversarial_benchmark.py` - Extreme stress test (CPU + SSH disconnect)
+- `long_term_profiler.py` - Long-term daemon power profiling
+- `ane_gpu_monitor.py` - ANE/GPU monitoring with statistical analysis
+
 ## 📈 Example Workflows
 
 ### Extended Power Monitoring
@@ -186,6 +191,7 @@ power-benchmarking-week2/
 - `docs/PERFORMANCE.md` - Detailed performance analysis and results
 - `docs/ARDUINO.md` - Arduino integration guide
 - `docs/QUICK_REFERENCE.md` - Quick command reference
+- `docs/ADVANCED_FEATURES.md` - Advanced features: adversarial benchmark, long-term profiling, ANE/GPU monitoring
 
 ## 🎓 Use Cases
 
