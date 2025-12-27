@@ -119,6 +119,109 @@ class ANEGPUMonitor:
             print(f"❌ Error collecting power data: {e}")
             return {}
     
+    def predict_thermal_throttling(
+        self,
+        burst_fraction: float,
+        mean_power: float,
+        max_power: float,
+        component: str = "ane"
+    ) -> Dict[str, any]:
+        """
+        Predict thermal throttling risk based on burst fraction and power consumption.
+        
+        **The Thermal Dimension**: High burst fraction + sustained high power
+        indicates risk of thermal throttling. Apple Silicon reduces performance
+        when temperature exceeds thresholds to prevent damage.
+        
+        **Formula Connection**: 
+        - High burst fraction (f) = frequent high-power spikes
+        - Sustained high mean = thermal accumulation
+        - Thermal throttling occurs when: mean_power > thermal_threshold
+        
+        **Prediction Logic**:
+        1. Burst fraction > 50% = frequent spikes (high thermal load)
+        2. Mean power > 80% of max = sustained high power
+        3. Both conditions = high throttling risk
+        
+        Args:
+            burst_fraction: Fraction of time in high-power bursts (0.0 to 1.0)
+            mean_power: Mean power consumption (mW)
+            max_power: Maximum observed power (mW)
+            component: Component name (ane, gpu, cpu)
+        
+        Returns:
+            Dictionary with thermal throttling prediction
+        """
+        # Thermal thresholds (empirical, component-specific)
+        thermal_thresholds = {
+            'ane': {
+                'max_sustained': 2000.0,  # mW - ANE max sustained power
+                'burst_risk_threshold': 0.50,  # 50% burst fraction
+                'power_risk_threshold': 0.80,  # 80% of max power
+            },
+            'gpu': {
+                'max_sustained': 3500.0,  # mW - GPU max sustained power
+                'burst_risk_threshold': 0.50,
+                'power_risk_threshold': 0.80,
+            },
+            'cpu': {
+                'max_sustained': 4000.0,  # mW - CPU max sustained power
+                'burst_risk_threshold': 0.50,
+                'power_risk_threshold': 0.80,
+            }
+        }
+        
+        thresholds = thermal_thresholds.get(component.lower(), thermal_thresholds['ane'])
+        
+        # Calculate risk factors
+        burst_risk = burst_fraction > thresholds['burst_risk_threshold']
+        power_ratio = mean_power / max_power if max_power > 0 else 0.0
+        power_risk = power_ratio > thresholds['power_risk_threshold']
+        sustained_risk = mean_power > thresholds['max_sustained']
+        
+        # Overall risk assessment
+        risk_score = 0
+        if burst_risk:
+            risk_score += 1
+        if power_risk:
+            risk_score += 1
+        if sustained_risk:
+            risk_score += 2  # Sustained high power is most critical
+        
+        if risk_score >= 3:
+            throttling_risk = "HIGH"
+            recommendation = (
+                f"⚠️  HIGH thermal throttling risk detected. "
+                f"Reduce burst frequency or power limit to prevent performance degradation."
+            )
+        elif risk_score >= 2:
+            throttling_risk = "MEDIUM"
+            recommendation = (
+                f"⚠️  MEDIUM thermal throttling risk. "
+                f"Monitor temperature and consider reducing workload intensity."
+            )
+        else:
+            throttling_risk = "LOW"
+            recommendation = (
+                f"✅ LOW thermal throttling risk. "
+                f"Current power profile is within safe thermal limits."
+            )
+        
+        return {
+            'throttling_risk': throttling_risk,
+            'risk_score': risk_score,
+            'burst_fraction': burst_fraction,
+            'burst_risk': burst_risk,
+            'mean_power': mean_power,
+            'max_power': max_power,
+            'power_ratio': power_ratio,
+            'power_risk': power_risk,
+            'sustained_risk': sustained_risk,
+            'thermal_threshold': thresholds['max_sustained'],
+            'recommendation': recommendation,
+            'component': component
+        }
+    
     def calculate_skewness(self, values: List[float], component: str = "unknown") -> Dict[str, float]:
         """
         Calculate skewness statistics (mean, median, divergence).
@@ -179,8 +282,9 @@ class ANEGPUMonitor:
             skew_direction = "normal"
             skew_interpretation = "Stable workload (consistent power consumption)"
         
-        # Estimate drop fraction (for left-skewed)
+        # Estimate drop fraction (for left-skewed) or burst fraction (for right-skewed)
         if mean < median and len(values) > 0:
+            # Left-skewed: calculate drop fraction
             low_power = min(values)
             high_power = median
             if high_power > low_power:
@@ -188,16 +292,32 @@ class ANEGPUMonitor:
                 drop_fraction = max(0, min(1, abs(drop_fraction)))
             else:
                 drop_fraction = 0.0
+            burst_fraction = None
+        elif mean > median and len(values) > 0:
+            # Right-skewed: calculate burst fraction
+            low_power = min(values)
+            high_power = max(values)
+            if high_power > low_power:
+                # Mean = (L × f) + (H × (1-f))
+                # f = (Mean - H) / (L - H)
+                idle_fraction = (mean - high_power) / (low_power - high_power)
+                idle_fraction = max(0.0, min(1.0, idle_fraction))
+                burst_fraction = 1.0 - idle_fraction
+            else:
+                burst_fraction = 0.0
+            drop_fraction = None
         else:
             drop_fraction = 0.0
+            burst_fraction = None
         
-        return {
+        result = {
             'mean': mean,
             'median': median,
             'divergence_pct': divergence_pct,
             'skew_direction': skew_direction,
             'skew_interpretation': skew_interpretation,
             'drop_fraction': drop_fraction,
+            'burst_fraction': burst_fraction,
             'min': min(values),
             'max': max(values),
             'std': statistics.stdev(values) if len(values) > 1 else 0.0,
@@ -208,6 +328,15 @@ class ANEGPUMonitor:
                 "All components (CPU, ANE, GPU) follow the same idle/active pattern."
             )
         }
+        
+        # Add thermal throttling prediction if burst fraction available
+        if burst_fraction is not None:
+            thermal_prediction = self.predict_thermal_throttling(
+                burst_fraction, mean, max(values), component
+            )
+            result['thermal_prediction'] = thermal_prediction
+        
+        return result
     
     def calculate_attribution_ratio(
         self,
