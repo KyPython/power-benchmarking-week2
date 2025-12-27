@@ -279,6 +279,42 @@ class UserAppAnalyzer:
         """
         Identify hidden energy waste based on analysis.
         
+        **App Waste Fingerprinting: Low Attribution Ratio (<30%)**
+        
+        **What Low AR Tells Us About Hidden Processes**:
+        
+        1. **Attribution Ratio Formula**:
+           AR = (App_Power_Delta) / (Total_System_Delta)
+           - If AR < 30%, app's measured power is <30% of total system increase
+           - The remaining 70%+ is "unattributed" = hidden processes
+        
+        2. **For Safari Specifically**:
+           - Low AR (<30%) indicates hidden helper processes:
+             * WebKit processes (renderer, network, GPU)
+             * Extension processes (ad blockers, password managers)
+             * Background tabs (still consuming power when "idle")
+             * Media processes (video decoding, audio processing)
+             * Network processes (DNS, HTTP/2, WebSocket)
+        
+        3. **Why These Are "Hidden"**:
+           - macOS process tree: Safari spawns child processes
+           - Each tab = separate process (WebKit architecture)
+           - Background tabs still run JavaScript, fetch data
+           - Extensions run in separate processes
+           - These don't show up as "Safari" in simple PID searches
+        
+        4. **Energy Waste Implications**:
+           - Hidden processes consume power without user awareness
+           - Background tabs can drain battery even when "closed"
+           - Extensions may run continuously (e.g., ad blockers scanning)
+           - Media processes continue after video ends (buffering)
+        
+        5. **Detection Method**:
+           - Low AR = discrepancy between app power and system power
+           - Formula: AR = App_Delta / Total_Delta
+           - If AR < 30%, then Total_Delta > 3× App_Delta
+           - This 3× multiplier = hidden processes
+        
         Returns:
             List of waste indicators and recommendations
         """
@@ -288,11 +324,45 @@ class UserAppAnalyzer:
         if 'attribution_ratio' in analysis:
             ar = analysis['attribution_ratio']
             if ar < 0.3:  # Less than 30% attribution
+                app_name = analysis.get('app_name', 'Application')
+                
                 waste_indicators.append(
                     f"⚠️  Low Attribution Ratio ({ar*100:.1f}%): "
                     f"App power is not well-attributed. Possible hidden processes or "
                     f"system overhead consuming power."
                 )
+                
+                # App-specific interpretation
+                if 'safari' in app_name.lower():
+                    waste_indicators.append(
+                        f"   🕵️‍♂️  Safari Hidden Processes Detected:"
+                    )
+                    waste_indicators.append(
+                        f"      • WebKit renderer processes (background tabs)"
+                    )
+                    waste_indicators.append(
+                        f"      • Extension processes (ad blockers, password managers)"
+                    )
+                    waste_indicators.append(
+                        f"      • Media processes (video decoding, audio)"
+                    )
+                    waste_indicators.append(
+                        f"      • Network processes (DNS, HTTP/2, WebSocket)"
+                    )
+                    waste_indicators.append(
+                        f"   💡 Recommendation: Close unused tabs, disable extensions, "
+                        f"check Activity Monitor for WebKit processes"
+                    )
+                elif 'chrome' in app_name.lower():
+                    waste_indicators.append(
+                        f"   🕵️‍♂️  Chrome Hidden Processes: Multiple renderer processes, "
+                        f"extensions, background services"
+                    )
+                else:
+                    waste_indicators.append(
+                        f"   🕵️‍♂️  Hidden processes detected: Check Activity Monitor "
+                        f"for child processes or background threads"
+                    )
         
         # High burst fraction = inefficient rendering
         if 'skewness' in analysis and 'burst_fraction' in analysis['skewness']:

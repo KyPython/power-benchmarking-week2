@@ -108,6 +108,8 @@ class AutomatedFeedbackLoop:
             'burst_fraction': burst_fraction,
             'power_tax': power_tax,
             'issue_detected': issue_detected,
+            'baseline_power': self._measure_baseline_power(duration=5),
+            'total_system_power': self._measure_total_system_power(duration=5),
             'timestamp': datetime.now().isoformat()
         }
         
@@ -165,31 +167,74 @@ class AutomatedFeedbackLoop:
         after_duration: int = 10
     ) -> Dict:
         """
-        Measure power after fix and calculate savings.
+        Measure power after fix and calculate savings with Attribution Ratio validation.
+        
+        **Validating the Feedback Loop**: Uses Attribution Ratio formula to verify that
+        the power drop actually eliminated waste (not just moved it elsewhere).
+        
+        **Attribution Ratio Formula**:
+        AR = (Daemon_Power_Delta) / (Total_System_Delta)
+        
+        **Validation Logic**:
+        1. Before: AR_before = (Daemon_Power - Baseline) / (Total_Power - Baseline)
+        2. After: AR_after = (Daemon_Power - Baseline) / (Total_Power - Baseline)
+        3. If AR_after < AR_before AND total system power decreased:
+           → Waste was eliminated (not just moved)
+        4. If AR_after ≈ AR_before but power decreased:
+           → Power moved to other processes (not eliminated)
         
         Args:
             before_stats: Power statistics before fix
             after_duration: Duration to measure after fix (seconds)
         
         Returns:
-            Dictionary with before/after comparison
+            Dictionary with before/after comparison and attribution validation
         """
         print(f"\n📊 Measuring after fix ({after_duration}s)...")
         
         # Wait a moment for fix to take effect
         time.sleep(2)
         
-        # Measure after
+        # Measure baseline (system idle)
+        baseline = self._measure_baseline_power(duration=5)
+        
+        # Measure after (daemon + system)
         after_stats = self._measure_daemon_power(after_duration)
         if not after_stats:
             print("  ⚠️  Could not measure power after fix")
             return {}
         
-        # Calculate savings
+        # Measure total system power after
+        after_total = self._measure_total_system_power(after_duration)
+        
+        # Get before values (from detection phase)
         before_mean = before_stats['mean_power']
+        before_baseline = before_stats.get('baseline_power', baseline)
+        before_total = before_stats.get('total_system_power', before_mean + before_baseline)
+        
+        # After values
         after_mean = after_stats['mean_power']
+        after_total_power = after_total if after_total else (after_mean + baseline)
+        
+        # Calculate savings
         savings_mw = before_mean - after_mean
         savings_percent = (savings_mw / before_mean * 100) if before_mean > 0 else 0
+        total_savings_mw = before_total - after_total_power
+        
+        # Calculate Attribution Ratios
+        # AR = (Daemon_Delta) / (Total_Delta)
+        before_daemon_delta = before_mean - before_baseline
+        before_total_delta = before_total - before_baseline
+        ar_before = (before_daemon_delta / before_total_delta * 100) if before_total_delta > 0 else 0
+        
+        after_daemon_delta = after_mean - baseline
+        after_total_delta = after_total_power - baseline
+        ar_after = (after_daemon_delta / after_total_delta * 100) if after_total_delta > 0 else 0
+        
+        # Validation: Did we eliminate waste or just move it?
+        ar_reduction = ar_before - ar_after
+        waste_eliminated = (ar_after < ar_before) and (total_savings_mw > 0)
+        power_moved = (abs(ar_reduction) < 5.0) and (savings_mw > 0) and (total_savings_mw < savings_mw * 0.5)
         
         # Check if still on P-cores
         pids = self._get_daemon_pids()
@@ -198,11 +243,29 @@ class AutomatedFeedbackLoop:
         result = {
             'before': before_stats,
             'after': after_stats,
+            'baseline_power_mw': baseline,
             'savings_mw': savings_mw,
             'savings_percent': savings_percent,
+            'total_savings_mw': total_savings_mw,
             'on_p_cores_before': before_stats.get('on_p_cores', False),
             'on_p_cores_after': on_p_cores_after,
             'fix_effective': not on_p_cores_after and savings_mw > 0,
+            'attribution_ratio_before': ar_before,
+            'attribution_ratio_after': ar_after,
+            'ar_reduction': ar_reduction,
+            'waste_eliminated': waste_eliminated,
+            'power_moved': power_moved,
+            'validation': {
+                'waste_eliminated': waste_eliminated,
+                'power_moved': power_moved,
+                'interpretation': (
+                    "✅ Waste eliminated - power actually reduced system-wide"
+                    if waste_eliminated else
+                    "⚠️  Power moved - daemon power reduced but system power unchanged"
+                    if power_moved else
+                    "✅ Fix effective - daemon moved to E-cores"
+                )
+            },
             'timestamp': datetime.now().isoformat()
         }
         
@@ -267,7 +330,7 @@ class AutomatedFeedbackLoop:
         return results
     
     def _print_results(self, comparison: Dict):
-        """Print before/after comparison results."""
+        """Print before/after comparison results with Attribution Ratio validation."""
         print("\n" + "=" * 70)
         print("📊 BEFORE vs AFTER RESULTS")
         print("=" * 70)
@@ -280,12 +343,37 @@ class AutomatedFeedbackLoop:
         print(f"  Before: {before['mean_power']:.1f} mW (mean)")
         print(f"  After:  {after['mean_power']:.1f} mW (mean)")
         print(f"  Savings: {comparison['savings_mw']:.1f} mW ({comparison['savings_percent']:.1f}%)")
+        print(f"  Total System Savings: {comparison.get('total_savings_mw', 0):.1f} mW")
         print()
         
         print(f"CPU Affinity:")
         print(f"  Before: {'P-cores' if comparison['on_p_cores_before'] else 'E-cores'}")
         print(f"  After:  {'P-cores' if comparison['on_p_cores_after'] else 'E-cores'}")
         print()
+        
+        # Attribution Ratio Validation
+        if 'attribution_ratio_before' in comparison:
+            print(f"🧪 ATTRIBUTION RATIO VALIDATION:")
+            print(f"  Before: {comparison['attribution_ratio_before']:.1f}%")
+            print(f"  After:  {comparison['attribution_ratio_after']:.1f}%")
+            print(f"  Change: {comparison['ar_reduction']:.1f}%")
+            print()
+            
+            validation = comparison.get('validation', {})
+            print(f"  {validation.get('interpretation', '')}")
+            print()
+            
+            if validation.get('waste_eliminated'):
+                print("  ✅ PROOF: Waste eliminated (not just moved)")
+                print(f"     • Daemon AR reduced: {comparison['ar_reduction']:.1f}%")
+                print(f"     • System power decreased: {comparison.get('total_savings_mw', 0):.1f} mW")
+                print(f"     • Formula: AR = (Daemon_Delta) / (Total_Delta)")
+                print(f"     • Lower AR + Lower Total = Waste eliminated")
+            elif validation.get('power_moved'):
+                print("  ⚠️  WARNING: Power may have moved to other processes")
+                print(f"     • Daemon power reduced but AR unchanged")
+                print(f"     • System power may not have decreased proportionally")
+            print()
         
         if comparison['fix_effective']:
             print("✅ FIX EFFECTIVE: Power savings achieved and moved to E-cores")

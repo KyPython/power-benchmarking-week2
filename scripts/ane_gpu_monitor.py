@@ -129,14 +129,40 @@ class ANEGPUMonitor:
         """
         Predict thermal throttling risk based on burst fraction and power consumption.
         
-        **The Thermal Dimension**: High burst fraction + sustained high power
-        indicates risk of thermal throttling. Apple Silicon reduces performance
-        when temperature exceeds thresholds to prevent damage.
+        **Decoding Thermal Throttling: Why Burst Fraction > Mean Power**
         
-        **Formula Connection**: 
-        - High burst fraction (f) = frequent high-power spikes
-        - Sustained high mean = thermal accumulation
-        - Thermal throttling occurs when: mean_power > thermal_threshold
+        **The Physics of Silicon Heat Buildup**:
+        
+        1. **Heat Capacity & Thermal Mass**:
+           - Silicon has thermal mass (takes time to heat up/cool down)
+           - Rapid power spikes (bursts) create heat faster than it can dissipate
+           - Mean power alone doesn't capture this - it averages out the spikes
+        
+        2. **Burst Fraction Reveals Heat Generation Rate**:
+           - High burst fraction (>50%) = frequent spikes = rapid heat generation
+           - Even if mean is moderate, frequent spikes prevent cooling
+           - Example: 2000 mW bursts every 500ms vs. steady 1500 mW
+             → Bursts create more heat despite lower mean
+        
+        3. **Thermal Time Constants**:
+           - Heat buildup: ~100-500ms (fast)
+           - Heat dissipation: ~1-5 seconds (slow)
+           - Burst fraction captures the "duty cycle" of heat generation
+           - Mean power misses the temporal pattern
+        
+        4. **Why Mean Power Fails**:
+           - Mean = (L × f) + (H × (1-f))
+           - Two scenarios with same mean:
+             * Scenario A: 800 mW steady (mean=800, burst=0%)
+             * Scenario B: 2000 mW bursts 40% of time (mean=800, burst=40%)
+           - Scenario B will throttle (frequent spikes), Scenario A won't
+           - Mean can't distinguish these!
+        
+        5. **Burst Fraction as Heat Generation Rate**:
+           - Burst fraction = frequency of high-power events
+           - High frequency = less time for cooling between spikes
+           - Thermal accumulation = heat_generated - heat_dissipated
+           - Burst fraction directly relates to heat_generated rate
         
         **Prediction Logic**:
         1. Burst fraction > 50% = frequent spikes (high thermal load)
