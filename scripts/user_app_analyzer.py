@@ -460,6 +460,134 @@ class UserAppAnalyzer:
         
         return waste_indicators
     
+    def _generate_optimization_recommendations(
+        self,
+        breakdown: Dict[str, List[Dict]],
+        unattributed_power: float,
+        attribution: Dict
+    ) -> List[str]:
+        """
+        Generate optimization recommendations based on process breakdown.
+        
+        **Browser Forensics: Tab Suspender vs Task Policy**
+        
+        For 8 background tabs draining battery:
+        
+        1. **Tab Suspender (Recommended)**:
+           - Suspends inactive tabs (stops JavaScript, pauses rendering)
+           - More effective: Actually stops work, not just moves it
+           - User-friendly: Tabs can be resumed when needed
+           - Power savings: 80-90% reduction per suspended tab
+        
+        2. **Task Policy (Alternative)**:
+           - Forces renderer processes to E-cores
+           - Less effective: Work still continues, just on different cores
+           - May trigger redistribution trap
+           - Power savings: 30-50% reduction per tab
+        
+        **Decision Logic**:
+        - If >5 renderer processes: Recommend tab suspender (more effective)
+        - If <5 renderer processes: Task policy may be sufficient
+        - If extensions >2: Recommend disabling extensions
+        - If media processes active: Recommend closing media tabs
+        
+        Returns:
+            List of optimization recommendations
+        """
+        recommendations = []
+        
+        renderer_count = len(breakdown.get('renderer', []))
+        extension_count = len(breakdown.get('extension', []))
+        media_count = len(breakdown.get('media', []))
+        
+        # Tab Suspender vs Task Policy decision
+        if renderer_count > 5:
+            recommendations.append(
+                f"✅ RECOMMENDED: Use Tab Suspender for {renderer_count} background tabs"
+            )
+            recommendations.append(
+                f"   • Tab suspender stops JavaScript and pauses rendering"
+            )
+            recommendations.append(
+                f"   • Power savings: 80-90% per suspended tab (~{renderer_count * 50:.0f} mW)"
+            )
+            recommendations.append(
+                f"   • More effective than task policy (stops work vs. moves it)"
+            )
+            recommendations.append(
+                f"   • Install: Safari Extensions → 'Tab Suspender' or similar"
+            )
+        elif renderer_count > 2:
+            recommendations.append(
+                f"✅ RECOMMENDED: Use Task Policy for {renderer_count} background tabs"
+            )
+            recommendations.append(
+                f"   • Force renderer processes to E-cores:"
+            )
+            recommendations.append(
+                f"   • sudo taskpolicy -c 0x0F -p $(pgrep -f 'com.apple.WebKit')"
+            )
+            recommendations.append(
+                f"   • Power savings: 30-50% per tab (~{renderer_count * 20:.0f} mW)"
+            )
+            recommendations.append(
+                f"   • Alternative: Use tab suspender for better savings"
+            )
+        else:
+            recommendations.append(
+                f"ℹ️  {renderer_count} renderer process(es) - manageable, no action needed"
+            )
+        
+        # Extension recommendations
+        if extension_count > 2:
+            recommendations.append(
+                f"⚠️  {extension_count} extension processes detected"
+            )
+            recommendations.append(
+                f"   • Disable unused extensions to reduce power consumption"
+            )
+            recommendations.append(
+                f"   • Extensions run continuously (ad blockers, password managers)"
+            )
+            recommendations.append(
+                f"   • Estimated savings: ~{extension_count * 15:.0f} mW"
+            )
+        
+        # Media process recommendations
+        if media_count > 0:
+            recommendations.append(
+                f"⚠️  {media_count} media process(es) detected"
+            )
+            recommendations.append(
+                f"   • Close video/audio tabs to stop media processing"
+            )
+            recommendations.append(
+                f"   • Media processes continue after playback ends (buffering)"
+            )
+            recommendations.append(
+                f"   • Estimated savings: ~{media_count * 100:.0f} mW"
+            )
+        
+        # Overall recommendation priority
+        if unattributed_power > 70:
+            recommendations.append(
+                f"\n🎯 PRIORITY: {unattributed_power:.1f}% unattributed power detected"
+            )
+            if renderer_count > 5:
+                recommendations.append(
+                    f"   → Start with Tab Suspender (most effective for many tabs)"
+                )
+            elif extension_count > 2:
+                recommendations.append(
+                    f"   → Start with disabling extensions (quick win)"
+                )
+            else:
+                recommendations.append(
+                    f"   → Use Task Policy to move processes to E-cores"
+                )
+        
+        return recommendations
+    
     def analyze_app(self, duration: int = 30, baseline_power: Optional[float] = None) -> Dict:
         """
         Complete analysis of the application.
@@ -549,6 +677,17 @@ class UserAppAnalyzer:
                             print(f"       ⚠️  LIKELY CULPRIT: Media processes (video/audio) still active")
                 
                 print(f"\n   💡 Recommendation: Close unused tabs, disable extensions, check Activity Monitor")
+        
+        # Generate optimization recommendations
+        optimization_recommendations = self._generate_optimization_recommendations(
+            breakdown, unattributed_power, attribution
+        )
+        
+        if optimization_recommendations:
+            print(f"\n🔧 OPTIMIZATION RECOMMENDATIONS:")
+            for rec in optimization_recommendations:
+                print(f"   {rec}")
+            analysis['optimization_recommendations'] = optimization_recommendations
         
         # Build analysis result
         analysis = {

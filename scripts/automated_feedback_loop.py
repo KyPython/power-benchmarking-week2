@@ -287,6 +287,12 @@ class AutomatedFeedbackLoop:
         pids = self._get_daemon_pids()
         on_p_cores_after = any(self._check_on_p_cores(pid) for pid in pids) if pids else False
         
+        # The Redistribution Trap: Analyze macOS Scheduler Behavior
+        # If total system power doesn't drop as expected, check if P-cores got filled
+        scheduler_analysis = self._analyze_scheduler_redistribution(
+            before_total, after_total_power, savings_mw, total_savings_mw
+        )
+        
         result = {
             'before': before_stats,
             'after': after_stats,
@@ -306,6 +312,7 @@ class AutomatedFeedbackLoop:
                 'waste_eliminated': waste_eliminated,
                 'power_moved': power_moved,
                 'e_core_efficiency': e_core_efficiency_gain,
+                'scheduler_analysis': scheduler_analysis,
                 'interpretation': (
                     "✅ Waste eliminated - power actually reduced system-wide"
                     if waste_eliminated else
@@ -435,6 +442,20 @@ class AutomatedFeedbackLoop:
                 if validation.get('e_core_efficiency'):
                     eff = validation['e_core_efficiency']
                     print(f"     • E-Core Efficiency: {eff['interpretation']}")
+                
+                # Scheduler redistribution analysis
+                if validation.get('scheduler_analysis'):
+                    sched = validation['scheduler_analysis']
+                    print(f"\n  🔄 SCHEDULER BEHAVIOR ANALYSIS:")
+                    print(f"     {sched['interpretation']}")
+                    if sched['trap_detected']:
+                        print(f"     • Power redistributed: {sched['power_redistributed_mw']:.1f} mW")
+                        print(f"     • Redistribution ratio: {sched['redistribution_ratio']*100:.1f}%")
+                        print(f"     • Scheduler behavior: {sched['scheduler_behavior']}")
+                        if sched['p_core_processes']:
+                            print(f"     • Processes now on P-cores:")
+                            for proc in sched['p_core_processes'][:5]:
+                                print(f"       - {proc['name']} (PID: {proc['pid']}, CPU: {proc['cpu_percent']:.1f}%)")
             print()
         
         if comparison['fix_effective']:
