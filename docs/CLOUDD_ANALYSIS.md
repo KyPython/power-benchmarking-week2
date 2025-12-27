@@ -1,6 +1,8 @@
 # cloudd Analysis: Right-Skewed Distribution
 
-**Single Responsibility**: Complete walkthrough of analyzing `cloudd` (iCloud sync) using the Long-Term Profiler, demonstrating the three advanced concepts in practice.
+**Single Responsibility**: Reusable template/pattern for analyzing any daemon using the Long-Term Profiler. Demonstrates the three advanced concepts (formula, signal, decision) in a complete workflow from analysis to actionable fix.
+
+**Long-Term Value**: This document serves as a **methodology template** that can be applied to analyze any macOS daemon (backupd, mds, bird, photolibraryd, etc.), not just cloudd. It provides a complete, reusable pattern for power analysis.
 
 ---
 

@@ -84,7 +84,7 @@ Each document:
 - ✅ Provides value to target audience
 - ✅ Follows SRP (one clear responsibility)
 
-**Total**: 12 documentation files (plus root README.md), all serving distinct, long-term purposes.
+**Total**: 13 documentation files (plus root README.md = 14 total), all serving distinct, long-term purposes.
 
 ## Documentation Count Verification
 
@@ -97,7 +97,7 @@ Each document:
 - QUICK_REFERENCE.md
 - VISUAL_GUIDE.md
 
-**Technical Docs (8):**
+**Technical Docs (9):**
 - docs/README.md (this file - index)
 - ARCHITECTURE.md
 - TECHNICAL_DEEP_DIVE.md
@@ -106,6 +106,7 @@ Each document:
 - ENHANCEMENTS.md
 - ADVANCED_FEATURES.md
 - ADVANCED_CONCEPTS.md
+- CLOUDD_ANALYSIS.md
 
 **Distinction Between Similar Docs:**
 - **ADVANCED_FEATURES.md**: Usage guide for three new features (adversarial, profiling, ANE/GPU) - "How to use"
@@ -113,6 +114,16 @@ Each document:
 - **TECHNICAL_DEEP_DIVE.md**: General advanced concepts (non-blocking I/O, power attribution, statistics) - Broad reference
 - **INTELLIGENT_ENHANCEMENTS.md**: AI-powered features (adaptive baseline, divergence dashboard, kernel resilience) - Feature documentation
 - **ENHANCEMENTS.md**: Historical script improvements (power_logger, visualizer, analyzer) - Evolution history
+- **CLOUDD_ANALYSIS.md**: Practical walkthrough template - Reusable pattern for analyzing any daemon
+
+**Long-Term Value Verification:**
+
+✅ **CLOUDD_ANALYSIS.md** serves as a **reusable template/pattern**:
+- Not a one-time snapshot, but a methodology
+- Demonstrates complete workflow: analysis → formula → signal → decision
+- Can be applied to analyze any daemon (backupd, mds, bird, etc.)
+- Shows all three advanced concepts in practice
+- Provides concrete examples with actual calculations
 
 All serve distinct purposes and remain valuable long-term.
 
