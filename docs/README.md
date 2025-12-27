@@ -48,6 +48,9 @@ All documentation follows the **Single Responsibility Principle (SRP)** - each f
 - **[ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)** - Advanced features extending the suite  
   *Purpose*: Adversarial benchmark, long-term efficiency profiling, ANE/GPU monitoring with statistical analysis
 
+- **[ADVANCED_CONCEPTS.md](ADVANCED_CONCEPTS.md)** - Deep technical explanations  
+  *Purpose*: Universality of math, signal lifecycle, data-to-decisions workflow
+
 ---
 
 ## Navigation Guide

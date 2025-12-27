@@ -282,6 +282,124 @@ class LongTermProfiler:
             'analysis_date': datetime.now().isoformat()
         }
     
+    def _get_daemon_recommendations(self, daemon_name: str) -> List[str]:
+        """
+        Get specific macOS settings and task policy recommendations for a daemon.
+        
+        Returns:
+            List of recommendation strings
+        """
+        recommendations = []
+        
+        daemon_lower = daemon_name.lower()
+        
+        if daemon_lower == 'backupd':
+            # Time Machine recommendations
+            recommendations.extend([
+                "1. Limit Time Machine frequency:",
+                "   sudo tmutil setinterval 3600  # Backup every hour instead of continuous",
+                "",
+                "2. Move backupd to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f backupd)  # Force to E-cores (0-3)",
+                "",
+                "3. Schedule backups during low-usage periods:",
+                "   System Settings > General > Time Machine > Options",
+                "   Enable 'Back up automatically' only during specific hours",
+                "",
+                "4. Exclude large directories from backups:",
+                "   sudo tmutil addexclusion ~/Downloads  # Example"
+            ])
+        
+        elif daemon_lower == 'mds' or 'mds' in daemon_lower:
+            # Spotlight recommendations
+            recommendations.extend([
+                "1. Reduce Spotlight indexing:",
+                "   System Settings > Siri & Spotlight > Spotlight",
+                "   Uncheck unnecessary categories (e.g., Developer, Fonts)",
+                "",
+                "2. Move mds to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f mds)  # Force to E-cores",
+                "",
+                "3. Exclude large directories from indexing:",
+                "   sudo mdutil -i off /Volumes/LargeDrive  # Example",
+                "   Or: System Settings > Siri & Spotlight > Privacy",
+                "",
+                "4. Limit indexing frequency:",
+                "   sudo defaults write /.Spotlight-V100 IndexingInterval 3600"
+            ])
+        
+        elif daemon_lower == 'cloudd':
+            # iCloud sync recommendations
+            recommendations.extend([
+                "1. Reduce iCloud sync frequency:",
+                "   System Settings > Apple ID > iCloud",
+                "   Disable 'iCloud Drive' or 'Desktop & Documents' if not needed",
+                "",
+                "2. Move cloudd to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f cloudd)  # Force to E-cores",
+                "",
+                "3. Limit sync to Wi-Fi only:",
+                "   System Settings > Apple ID > iCloud > iCloud Drive > Options",
+                "   Enable 'Only sync over Wi-Fi'",
+                "",
+                "4. Pause iCloud sync during high-usage:",
+                "   System Settings > Apple ID > iCloud",
+                "   Temporarily disable 'iCloud Drive' when not needed"
+            ])
+        
+        elif daemon_lower == 'bird':
+            # iCloud Documents recommendations
+            recommendations.extend([
+                "1. Move bird to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f bird)  # Force to E-cores",
+                "",
+                "2. Reduce iCloud Documents sync:",
+                "   System Settings > Apple ID > iCloud",
+                "   Disable 'Desktop & Documents' if not needed",
+                "",
+                "3. Limit sync frequency:",
+                "   System Settings > Apple ID > iCloud > iCloud Drive > Options",
+                "   Enable 'Only sync over Wi-Fi'"
+            ])
+        
+        elif 'photolibraryd' in daemon_lower:
+            # Photos sync recommendations
+            recommendations.extend([
+                "1. Disable iCloud Photos if not needed:",
+                "   System Settings > Apple ID > iCloud > Photos",
+                "   Turn off 'iCloud Photos'",
+                "",
+                "2. Move photolibraryd to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f photolibraryd)  # Force to E-cores",
+                "",
+                "3. Limit photo sync to Wi-Fi:",
+                "   System Settings > Apple ID > iCloud > Photos",
+                "   Enable 'Download Originals' only on Wi-Fi"
+            ])
+        
+        elif 'mdworker' in daemon_lower or 'mds_stores' in daemon_lower:
+            # Spotlight worker recommendations
+            recommendations.extend([
+                "1. Move mdworker to E-cores:",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f mdworker)  # Force to E-cores",
+                "",
+                "2. Reduce Spotlight indexing (see 'mds' recommendations above)"
+            ])
+        
+        else:
+            # Generic recommendations
+            recommendations.extend([
+                f"1. Move {daemon_name} to E-cores:",
+                f"   sudo taskpolicy -c 0x0F -p $(pgrep -f {daemon_name})  # Force to E-cores",
+                "",
+                "2. Check System Settings for daemon-specific options",
+                "",
+                "3. Consider disabling if not needed:",
+                f"   sudo launchctl unload -w /System/Library/LaunchDaemons/{daemon_name}.plist"
+            ])
+        
+        return recommendations
+    
     def print_offender_report(self, analysis: Dict):
         """Print report of worst battery drain offenders."""
         print("\n" + "=" * 70)
@@ -310,13 +428,23 @@ class LongTermProfiler:
         print(f"💡 Baseline Efficiency: {analysis['avg_baseline_mw']:.1f} mW")
         print()
         
-        # Recommendations
+        # Recommendations with specific macOS settings
         print("💡 Recommendations:")
         top_offenders = [d for d, s in analysis['daemon_rankings'][:3] if s['avg_tax'] > 0]
         if top_offenders:
             print(f"   🎯 Focus on: {', '.join(top_offenders)}")
-            print(f"   💡 Consider moving these to E-cores using taskpolicy")
             print(f"   💡 Estimated savings: {sum(s['avg_tax'] for _, s in analysis['daemon_rankings'][:3]):.1f} mW")
+            print()
+            print("🔧 Specific macOS Settings & Task Policies:")
+            print()
+            
+            for daemon in top_offenders:
+                recommendations = self._get_daemon_recommendations(daemon)
+                if recommendations:
+                    print(f"   📋 {daemon}:")
+                    for rec in recommendations:
+                        print(f"      {rec}")
+                    print()
 
 
 def main():

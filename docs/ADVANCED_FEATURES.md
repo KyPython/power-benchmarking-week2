@@ -370,6 +370,15 @@ No new dependencies required!
 
 ---
 
+## Advanced Technical Concepts
+
+For deep technical explanations of:
+- **Universality of the Math**: Why the skewness formula works across all accelerators
+- **Signal Lifecycle**: How SIGHUP ensures data integrity before termination
+- **Data to Decisions**: How profiling recommendations translate to actionable fixes
+
+See **[ADVANCED_CONCEPTS.md](ADVANCED_CONCEPTS.md)**.
+
 ## Conclusion
 
 These three advanced features extend the power benchmarking suite to handle:

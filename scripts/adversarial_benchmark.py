@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple
 from collections import deque
 from datetime import datetime
 import argparse
+import os
 
 
 class AdversarialBenchmark:
@@ -25,18 +26,25 @@ class AdversarialBenchmark:
     Adversarial benchmark that tests suite resilience under extreme stress.
     """
     
-    def __init__(self):
+    def __init__(self, output_file: Optional[str] = None):
         self.running = True
         self.stress_processes = []
         self.signal_times = deque(maxlen=100)
         self.priority_log = []
         self.start_time = time.time()
+        self.output_file = output_file
+        self.data_written = False
+        self.csv_header_written = False
         
         # Register signal handlers
         self._setup_signal_handlers()
         
         # Start heartbeat monitor
         self._start_heartbeat()
+        
+        # Initialize output file if specified
+        if self.output_file:
+            self._write_csv_header()
     
     def _setup_signal_handlers(self):
         """Setup handlers for all signals with priority tracking."""
@@ -52,18 +60,29 @@ class AdversarialBenchmark:
             elapsed = timestamp - self.start_time
             
             self.signal_times.append((sig, timestamp, signal_name, elapsed))
-            self.running = False
+            
+            # CRITICAL: Ensure data integrity before shutdown
+            # For SIGHUP (SSH disconnect), this is especially important
+            if sig == signal.SIGHUP:
+                print(f"\n\n🔌 [{elapsed*1000:.1f}ms] Received {signal_name} - ensuring data integrity...")
+                self._ensure_data_persisted()
+            else:
+                print(f"\n\n🛑 [{elapsed*1000:.1f}ms] Received {signal_name}")
             
             # Log priority response
             self.priority_log.append({
                 'signal': signal_name,
                 'elapsed_ms': elapsed * 1000,
                 'timestamp': datetime.now().isoformat(),
-                'priority': self._calculate_priority(sig, elapsed)
+                'priority': self._calculate_priority(sig, elapsed),
+                'data_persisted': self.data_written
             })
             
-            print(f"\n\n🛑 [{elapsed*1000:.1f}ms] Received {signal_name}")
             print(f"   Priority: {self._calculate_priority(sig, elapsed)}")
+            
+            # Only set running=False after data is persisted
+            # This ensures cleanup happens in order
+            self.running = False
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -106,6 +125,55 @@ class AdversarialBenchmark:
         
         heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
         heartbeat_thread.start()
+    
+    def _write_csv_header(self):
+        """Write CSV header to output file."""
+        if not self.output_file or self.csv_header_written:
+            return
+        
+        try:
+            with open(self.output_file, 'w') as f:
+                f.write("timestamp,elapsed_ms,signal,priority,data_persisted\n")
+            self.csv_header_written = True
+            print(f"📝 CSV header written to {self.output_file}")
+        except Exception as e:
+            print(f"⚠️  Error writing CSV header: {e}")
+    
+    def _ensure_data_persisted(self):
+        """
+        Ensure all data is written to disk before shutdown.
+        
+        This is critical for SIGHUP (SSH disconnect) to prevent data loss.
+        The lifecycle:
+        1. Signal received (<100ms via heartbeat)
+        2. Signal handler called
+        3. Data flushed to disk (this function)
+        4. running flag set to False
+        5. Main loop exits gracefully
+        6. Kernel can safely terminate process
+        """
+        if not self.output_file:
+            return
+        
+        try:
+            # Flush any pending data
+            if self.priority_log:
+                with open(self.output_file, 'a') as f:
+                    for log_entry in self.priority_log:
+                        f.write(
+                            f"{log_entry['timestamp']},"
+                            f"{log_entry['elapsed_ms']:.1f},"
+                            f"{log_entry['signal']},"
+                            f"{log_entry['priority']},"
+                            f"{log_entry.get('data_persisted', False)}\n"
+                        )
+                    f.flush()  # Force write to disk
+                    os.fsync(f.fileno())  # Ensure OS-level persistence
+            
+            self.data_written = True
+            print(f"✅ Data persisted to {self.output_file}")
+        except Exception as e:
+            print(f"⚠️  Error persisting data: {e}")
     
     def create_cpu_stress(self, cores: int = 4, duration: int = 60) -> subprocess.Popen:
         """
@@ -211,6 +279,10 @@ class AdversarialBenchmark:
                 proc.wait(timeout=2)
             except:
                 proc.kill()
+        
+        # Ensure final data is persisted
+        if self.output_file:
+            self._ensure_data_persisted()
         
         # Generate report
         return self._generate_report()
@@ -341,10 +413,15 @@ def main():
         default=5.0,
         help='Delay before simulating SSH disconnect in seconds (default: 5.0)'
     )
+    parser.add_argument(
+        '--output',
+        type=str,
+        help='Output CSV file for benchmark results (ensures data persistence on SIGHUP)'
+    )
     
     args = parser.parse_args()
     
-    benchmark = AdversarialBenchmark()
+    benchmark = AdversarialBenchmark(output_file=args.output)
     
     try:
         report = benchmark.run_benchmark(
