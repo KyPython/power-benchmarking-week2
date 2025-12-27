@@ -442,21 +442,26 @@ class AutomatedFeedbackLoop:
                 if validation.get('e_core_efficiency'):
                     eff = validation['e_core_efficiency']
                     print(f"     • E-Core Efficiency: {eff['interpretation']}")
-                
-                # Scheduler redistribution analysis
-                if validation.get('scheduler_analysis'):
-                    sched = validation['scheduler_analysis']
-                    print(f"\n  🔄 SCHEDULER BEHAVIOR ANALYSIS:")
-                    print(f"     {sched['interpretation']}")
-                    if sched['trap_detected']:
-                        print(f"     • Power redistributed: {sched['power_redistributed_mw']:.1f} mW")
-                        print(f"     • Redistribution ratio: {sched['redistribution_ratio']*100:.1f}%")
-                        print(f"     • Scheduler behavior: {sched['scheduler_behavior']}")
-                        if sched['p_core_processes']:
-                            print(f"     • Processes now on P-cores:")
-                            for proc in sched['p_core_processes'][:5]:
-                                print(f"       - {proc['name']} (PID: {proc['pid']}, CPU: {proc['cpu_percent']:.1f}%)")
             print()
+            
+            # Scheduler redistribution analysis (separate section)
+            if validation.get('scheduler_analysis'):
+                sched = validation['scheduler_analysis']
+                print(f"🔄 SCHEDULER BEHAVIOR ANALYSIS:")
+                print(f"   {sched['interpretation']}")
+                if sched['trap_detected']:
+                    print(f"   • Power redistributed: {sched['power_redistributed_mw']:.1f} mW")
+                    print(f"   • Redistribution ratio: {sched['redistribution_ratio']*100:.1f}%")
+                    print(f"   • Scheduler behavior: {sched['scheduler_behavior']}")
+                    print(f"   • The Redistribution Trap:")
+                    print(f"     - macOS scheduler is opportunistic: fills available P-cores")
+                    print(f"     - When P-cores become free, other processes migrate to them")
+                    print(f"     - This creates the trap: power moved, not eliminated")
+                    if sched['p_core_processes']:
+                        print(f"   • Processes now on P-cores:")
+                        for proc in sched['p_core_processes'][:5]:
+                            print(f"     - {proc['name']} (PID: {proc['pid']}, CPU: {proc['cpu_percent']:.1f}%)")
+                print()
         
         if comparison['fix_effective']:
             print("✅ FIX EFFECTIVE: Power savings achieved and moved to E-cores")
