@@ -514,6 +514,54 @@ class ThermalThrottleController:
             return results
         
         return {}
+    
+    def _check_regular_pattern(self, measurements: List[Dict], current_burst: float) -> bool:
+        """
+        Check if burst pattern is regular (useful work) or irregular (noise).
+        
+        **The Physics of Ambient Heat: Distinguishing Useful Work vs Noise**
+        
+        When threshold drops to 11% in hot room, we need to avoid over-throttling
+        based on noise (random spikes) rather than useful work (regular bursts).
+        
+        **Strategy**:
+        - Useful work: Regular timing, consistent magnitude
+        - Noise: Irregular timing, varying magnitude
+        
+        **Detection**:
+        - Calculate variance of burst fractions over recent measurements
+        - Low variance = regular pattern (useful work)
+        - High variance = irregular pattern (noise)
+        
+        Args:
+            measurements: Recent burst fraction measurements
+            current_burst: Current burst fraction
+        
+        Returns:
+            True if pattern is regular (useful work), False if irregular (noise)
+        """
+        if len(measurements) < 5:
+            # Not enough data - assume regular (will refine as we collect more)
+            return True
+        
+        # Get recent burst fractions (last 5 measurements)
+        recent_bursts = [m['burst_fraction'] for m in measurements[-5:]] + [current_burst]
+        
+        # Calculate variance
+        if len(recent_bursts) > 1:
+            mean_burst = statistics.mean(recent_bursts)
+            # Use sample variance (divide by n-1)
+            variance = sum((x - mean_burst) ** 2 for x in recent_bursts) / (len(recent_bursts) - 1)
+            
+            # Threshold: If variance > 0.01 (1% variance), it's likely noise
+            # Regular work has low variance (consistent burst fraction)
+            # Example: Regular bursts at 20% → variance ~0.0001 (very low)
+            # Example: Noise spikes at 15%, 25%, 10%, 30% → variance ~0.01 (high)
+            is_regular = variance < 0.01
+            
+            return is_regular
+        
+        return True  # Default: assume regular if can't determine
 
 
 def main():
