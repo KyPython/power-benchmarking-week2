@@ -480,8 +480,16 @@ class ANEGPUMonitor:
                 print(f"  Skew:     {stats['skew_direction']}")
                 print(f"  Interpretation: {stats['skew_interpretation']}")
                 
-                if stats['drop_fraction'] > 0:
+                if stats.get('drop_fraction', 0) > 0:
                     print(f"  Drop Fraction: {stats['drop_fraction']*100:.2f}%")
+                
+                if stats.get('burst_fraction'):
+                    print(f"  Burst Fraction: {stats['burst_fraction']*100:.2f}%")
+                
+                # Show thermal prediction if available
+                if 'thermal_prediction' in stats:
+                    thermal = stats['thermal_prediction']
+                    print(f"  🌡️  Thermal Risk: {thermal['throttling_risk']}")
                 
                 print(f"  Range:    {stats['min']:.1f} - {stats['max']:.1f} mW")
                 print(f"  Std Dev:  {stats['std']:.1f} mW")
