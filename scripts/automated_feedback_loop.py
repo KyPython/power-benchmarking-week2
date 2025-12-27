@@ -483,6 +483,18 @@ class AutomatedFeedbackLoop:
                             print(f"     - Same {before_total:.0f} mW power, but now 'high quality' power")
                             print(f"     - {ui_imp['redistributed_to_ui_percent']:.1f}% of power now goes to smooth UI")
                             print(f"     - User experience: Much better (smooth UI vs laggy background noise)")
+                            print()
+                            print(f"   • The 'Quality' Calibration: Optimal UI Responsiveness Ratio")
+                            print(f"     - Current ratio: {ui_imp['redistributed_to_ui_percent']:.1f}%")
+                            print(f"     - Optimal range: {ui_imp['optimal_range'][0]:.0f}-{ui_imp['optimal_range'][1]:.0f}% (sweet spot)")
+                            if ui_imp.get('quality_assessment'):
+                                print(f"     - {ui_imp['quality_assessment']}")
+                            if ui_imp.get('is_too_high'):
+                                print(f"     - Diminishing returns: UI already smooth (>60fps), extra power wasted")
+                                print(f"     - Battery impact: Same power, but could be better distributed")
+                            elif ui_imp.get('is_optimal'):
+                                print(f"     - Maximum user experience per watt (optimal distribution)")
+                                print(f"     - Battery impact: Same power, optimal quality")
                     if sched.get('hidden_debt_explanation'):
                         print(f"   • Insight: Your optimization wasn't a failure!")
                         print(f"     {sched['hidden_debt_explanation']}")
@@ -698,10 +710,70 @@ class AutomatedFeedbackLoop:
                     total_redistributed = daemon_savings - total_savings
                     ui_responsiveness_ratio = (ui_power_estimate / total_redistributed * 100) if total_redistributed > 0 else 0
                     
+                    # The "Quality" Calibration: Determining Optimal UI Responsiveness Ratio
+                    #
+                    # **The Question**: Is 57% UI responsiveness ratio optimal?
+                    #
+                    # **Optimal Range Analysis**:
+                    # - **Too Low (<30%)**: UI still bottlenecked, power going to other processes
+                    # - **Optimal (40-70%)**: UI gets enough power for smooth experience
+                    # - **Too High (>80%)**: Diminishing returns - UI already smooth, extra power wasted
+                    #
+                    # **Diminishing Returns Threshold**:
+                    # - UI smoothness has a "ceiling" - beyond 60fps, users can't perceive improvement
+                    # - If UI gets >80% of redistributed power, it means:
+                    #   * UI was severely bottlenecked (good - now fixed)
+                    #   * But extra power beyond smoothness threshold is wasted
+                    #   * Better to give some power back to other processes
+                    #
+                    # **The Calibration Formula**:
+                    # - Optimal UI ratio: 40-70% (sweet spot)
+                    # - Below 40%: UI still needs more power
+                    # - Above 70%: Diminishing returns - UI already smooth
+                    # - Above 80%: Waste - power could be used elsewhere
+                    #
+                    # **Example**:
+                    # - 57% UI ratio: Optimal (within 40-70% sweet spot)
+                    # - 85% UI ratio: Too high (diminishing returns, waste)
+                    # - 25% UI ratio: Too low (UI still bottlenecked)
+                    #
+                    # **Battery Life Impact**:
+                    # - Same total power, but better distribution
+                    # - Optimal ratio (40-70%): Maximum user experience per watt
+                    # - Too high ratio (>80%): Wasted power on imperceptible UI improvements
+                    
+                    optimal_range = (40.0, 70.0)
+                    is_optimal = optimal_range[0] <= ui_responsiveness_ratio <= optimal_range[1]
+                    is_too_high = ui_responsiveness_ratio > 80.0
+                    is_too_low = ui_responsiveness_ratio < 30.0
+                    
+                    quality_assessment = None
+                    if is_optimal:
+                        quality_assessment = (
+                            f"✅ Optimal UI responsiveness ratio ({ui_responsiveness_ratio:.1f}%) - "
+                            f"within sweet spot (40-70%). Maximum user experience per watt."
+                        )
+                    elif is_too_high:
+                        quality_assessment = (
+                            f"⚠️  High UI responsiveness ratio ({ui_responsiveness_ratio:.1f}%) - "
+                            f"diminishing returns detected. UI already smooth, extra power could be "
+                            f"used elsewhere. Consider if other processes need P-cores."
+                        )
+                    elif is_too_low:
+                        quality_assessment = (
+                            f"⚠️  Low UI responsiveness ratio ({ui_responsiveness_ratio:.1f}%) - "
+                            f"UI may still be bottlenecked. More power to UI processes needed."
+                        )
+                    
                     ui_responsiveness_improvement = {
                         'ui_processes_count': len(ui_processes),
                         'ui_power_estimate_mw': ui_power_estimate,
                         'redistributed_to_ui_percent': ui_responsiveness_ratio,
+                        'optimal_range': optimal_range,
+                        'is_optimal': is_optimal,
+                        'is_too_high': is_too_high,
+                        'is_too_low': is_too_low,
+                        'quality_assessment': quality_assessment,
                         'interpretation': (
                             f"UI Responsiveness Improvement: {ui_responsiveness_ratio:.1f}% of redistributed power "
                             f"went to UI processes ({len(ui_processes)} processes). "

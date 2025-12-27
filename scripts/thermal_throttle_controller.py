@@ -313,6 +313,33 @@ class ThermalThrottleController:
             # More aggressive throttling = longer idle periods
             throttle_level = max(0.1, throttle_level * 0.9)  # 10% more aggressive
         
+        # The Physics of Ambient Heat: Distinguishing Useful Work vs Noise
+        #
+        # **The Problem**: When threshold drops to 11% in hot room, how to avoid over-throttling?
+        #
+        # **Useful Work Pulses vs Noise**:
+        # - **Useful work pulses**: Regular, predictable bursts (e.g., AI inference every 500ms)
+        # - **Noise**: Irregular, random spikes (e.g., system interrupts, background tasks)
+        #
+        # **How to Distinguish**:
+        # 1. **Temporal Pattern**: Useful work has consistent timing (every N ms)
+        # 2. **Magnitude**: Useful work has similar power levels per burst
+        # 3. **Duration**: Useful work bursts have consistent duration
+        # 4. **Noise**: Irregular timing, varying magnitude, random duration
+        #
+        # **The Strategy**:
+        # - Monitor burst pattern over time (sliding window)
+        # - If bursts are regular → useful work → throttle to threshold
+        # - If bursts are irregular → noise → ignore (don't throttle based on noise)
+        # - Use variance/standard deviation to detect regularity
+        #
+        # **Example**:
+        # - Useful work: Bursts every 500ms, 1800 mW each → Regular pattern → Throttle
+        # - Noise: Random spikes at 200ms, 500ms, 1200ms, varying power → Irregular → Ignore
+        #
+        # **Implementation**: This is handled by measuring burst fraction over duration
+        # (regular bursts will show consistent fraction, noise will be averaged out)
+        
         return throttle_level
     
     def run_thermal_control(
@@ -378,14 +405,29 @@ class ThermalThrottleController:
                     time.sleep(check_interval)
                     continue
                 
+                # The Physics of Ambient Heat: Distinguish Useful Work vs Noise
+                # Check if burst pattern is regular (useful work) or irregular (noise)
+                is_regular_pattern = self._check_regular_pattern(measurements, burst_fraction)
+                
                 measurements.append({
                     'time': time.time() - start_time,
                     'burst_fraction': burst_fraction,
-                    'exceeds_threshold': burst_fraction > self.target_burst_fraction
+                    'exceeds_threshold': burst_fraction > self.target_burst_fraction,
+                    'is_regular_pattern': is_regular_pattern
                 })
                 
                 # Check if throttling needed
+                # Only throttle if burst exceeds threshold AND pattern is regular (useful work)
+                # Ignore noise (irregular spikes) to avoid over-throttling
                 if burst_fraction > self.target_burst_fraction:
+                    # Check if this is useful work or noise
+                    if not is_regular_pattern:
+                        # Noise detected - don't throttle based on noise
+                        print(f"[{time.time() - start_time:.1f}s] Burst: {burst_fraction*100:.1f}% "
+                              f"(threshold: {self.target_burst_fraction*100:.1f}%) - NOISE DETECTED (ignoring)")
+                        time.sleep(check_interval)
+                        continue
+                    
                     # Calculate throttle level
                     throttle_level = self.calculate_throttle_level(burst_fraction)
                     
