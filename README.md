@@ -137,37 +137,90 @@ The enhanced `unified_benchmark.py` now includes:
 
 ```
 power-benchmarking-week2/
-├── README.md                 # Main project overview
+├── README.md                 # Main project overview (you are here)
 ├── requirements.txt          # Python dependencies
-├── scripts/                  # All executable code
-│   ├── convert_model.py      # PyTorch → CoreML conversion
-│   ├── benchmark.py          # PyTorch baseline
-│   ├── benchmark_power.py    # CoreML Neural Engine
-│   ├── unified_benchmark.py  # Integrated benchmark
-│   ├── power_logger.py       # Automated CSV logging
-│   ├── power_visualizer.py   # Data visualization
-│   ├── app_power_analyzer.py # App comparison
-│   ├── analyze_power_data.py # Energy analysis
-│   ├── test_components.py    # Component verification
-│   ├── test_full_integration.py # Integration tests
-│   ├── validate_*.py         # Validation scripts (6 total)
-│   ├── intelligent_baseline_detector.py # Adaptive baseline
-│   ├── auto_rerun_on_skew.py # Auto re-run on interference
-│   ├── enhanced_signal_handler.py # Multi-signal handling
-│   └── arduino_power_receiver.ino # Arduino sketch
-├── docs/                     # Documentation
-│   ├── README.md             # Documentation index
-│   ├── PERFORMANCE.md        # Performance analysis
-│   ├── ARDUINO.md            # Arduino setup
-│   ├── QUICK_REFERENCE.md    # Command reference
-│   ├── VISUAL_GUIDE.md       # Visual output guide
-│   ├── ARCHITECTURE.md       # System architecture
-│   ├── TECHNICAL_DEEP_DIVE.md # Advanced concepts
-│   ├── VALIDATION.md         # Complete validation guide
-│   ├── INTELLIGENT_ENHANCEMENTS.md # AI-powered features
-│   └── ENHANCEMENTS.md       # Script evolution
+│
+├── scripts/                  # All executable code (27 scripts)
+│   ├── README.md             # Scripts navigation guide ⭐ START HERE
+│   │
+│   ├── 🚀 Core Workflow (4 scripts)
+│   │   ├── convert_model.py      # PyTorch → CoreML conversion
+│   │   ├── benchmark.py          # PyTorch baseline
+│   │   ├── benchmark_power.py    # CoreML Neural Engine
+│   │   └── unified_benchmark.py  # ⭐ Main benchmark (start here)
+│   │
+│   ├── 📊 Power Monitoring (4 scripts)
+│   │   ├── power_logger.py       # Automated CSV logging
+│   │   ├── power_visualizer.py   # Data visualization
+│   │   ├── app_power_analyzer.py # App comparison
+│   │   └── analyze_power_data.py # Energy analysis
+│   │
+│   ├── 🧪 Validation (6 scripts)
+│   │   ├── validate_io_performance.py
+│   │   ├── validate_attribution.py
+│   │   ├── validate_statistics.py
+│   │   ├── validate_pcore_tax.py
+│   │   ├── validate_skewness_threshold.py
+│   │   └── validate_scheduler_priority.py
+│   │
+│   ├── 🧠 Intelligent Features (5 scripts)
+│   │   ├── intelligent_baseline_detector.py
+│   │   ├── auto_rerun_on_skew.py
+│   │   ├── enhanced_signal_handler.py
+│   │   ├── automated_feedback_loop.py
+│   │   └── thermal_throttle_controller.py
+│   │
+│   ├── 🌟 Advanced Features (4 scripts)
+│   │   ├── adversarial_benchmark.py
+│   │   ├── long_term_profiler.py
+│   │   ├── ane_gpu_monitor.py
+│   │   └── user_app_analyzer.py
+│   │
+│   ├── 🔧 Testing (3 scripts)
+│   │   ├── test_components.py
+│   │   ├── test_full_integration.py
+│   │   └── verify_documentation.py
+│   │
+│   └── 🔌 Hardware (1 script)
+│       └── arduino_power_receiver.ino
+│
+├── docs/                     # Documentation (13 files)
+│   ├── README.md             # Documentation index ⭐ START HERE
+│   │
+│   ├── 📖 Public Docs (4 files)
+│   │   ├── PERFORMANCE.md        # Performance analysis
+│   │   ├── ARDUINO.md            # Arduino setup
+│   │   ├── QUICK_REFERENCE.md    # Command reference
+│   │   └── VISUAL_GUIDE.md       # Visual output guide
+│   │
+│   └── 🔬 Technical Docs (9 files)
+│       ├── ARCHITECTURE.md       # System architecture
+│       ├── TECHNICAL_DEEP_DIVE.md # Advanced concepts
+│       ├── VALIDATION.md         # Validation guide
+│       ├── INTELLIGENT_ENHANCEMENTS.md
+│       ├── ENHANCEMENTS.md
+│       ├── ADVANCED_FEATURES.md
+│       ├── ADVANCED_CONCEPTS.md
+│       └── CLOUDD_ANALYSIS.md
+│
 └── MobileNetV2.mlpackage/    # CoreML model (generated)
 ```
+
+### 🧭 Navigation Guide
+
+**New to the project?**
+1. Read this `README.md` (overview)
+2. Read `scripts/README.md` (script navigation)
+3. Read `docs/README.md` (documentation index)
+
+**Want to run benchmarks?**
+→ Start with `scripts/unified_benchmark.py`
+
+**Want to understand the code?**
+→ Read `docs/ARCHITECTURE.md`
+
+**Want to validate technical claims?**
+→ Read `docs/VALIDATION.md`
 
 ## 🔬 Technical Details
 
