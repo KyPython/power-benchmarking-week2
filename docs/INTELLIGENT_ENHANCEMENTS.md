@@ -332,6 +332,119 @@ Together, they transform theoretical validation into **practical intelligence** 
 
 ---
 
+## Deep Dive: Addressing Advanced Questions
+
+### 1. Tax Correction Logic: Legitimate vs Wasted Power 🏗️
+
+**Question**: When detecting a 1200 mW baseline, how do we distinguish between legitimate workload power and wasted P-core leakage?
+
+**Solution**: Multi-factor analysis using CPU usage and known P-core tax.
+
+**How It Works:**
+- **CPU Usage Analysis**: >20% CPU = legitimate workload, <10% CPU = likely wasted
+- **Power Breakdown**: Calculates legitimate vs wasted components
+- **Known P-Core Tax**: Refines estimate using actual daemon checks
+- **Classification**: `legitimate_workload`, `likely_wasted`, or `mixed`
+
+**Example Scenarios:**
+
+**Scenario A: Legitimate Workload (1200 mW baseline)**
+```
+CPU Usage: 35%
+Top Process: Python (compiler running)
+Classification: legitimate_workload
+
+Breakdown:
+  Legitimate: 1025 mW (500 idle + 35% × 15 mW/%)
+  Wasted: 175 mW (12% of baseline)
+  
+Interpretation: ✅ High baseline is from real work, not waste
+```
+
+**Scenario B: Wasted P-Core Leakage (1200 mW baseline)**
+```
+CPU Usage: 5%
+Top Process: mds (Spotlight indexing)
+Daemon on P-cores: Yes
+Known Tax: 700 mW
+
+Breakdown:
+  Legitimate: 500 mW (typical idle)
+  Wasted: 700 mW (58% of baseline)
+  
+Interpretation: ⚠️ High baseline is from P-core waste, not work
+```
+
+### 2. Real-Time Skew Trigger: Automatic Re-run 📉
+
+**Question**: When 2.35% drop fraction is detected, should we just warn or automatically offer to re-run?
+
+**Solution**: Intelligent re-run logic with user choice.
+
+**How It Works:**
+- **Real-Time Detection**: Monitors divergence and drop fraction as data arrives
+- **Re-run Decision**: Offers re-run when >5% divergence OR persistent detections OR >5% drop fraction
+- **Stabilization Wait**: Monitors power until background task completes (waits for low variance)
+- **User Choice**: Continue, wait and re-run automatically, or cancel
+
+**Example Flow:**
+```
+⚠️  BACKGROUND TASK INTERFERENCE DETECTED
+   Divergence: 2.35%
+   Drop Fraction: 2.35%
+
+🔄 Options:
+   1. Continue (use median for typical power)
+   2. Wait and re-run automatically when task completes
+   3. Cancel and re-run manually later
+
+Your choice: 2
+
+⏳ Waiting for background task to complete...
+   ✅ Power stabilized at 2000.5 mW
+   🔄 Re-running benchmark with clean baseline...
+```
+
+### 3. Multi-Signal Robustness: SIGHUP vs SIGINT 🛡️
+
+**Question**: How does the 100ms "heartbeat" ensure that SIGHUP (remote terminal disconnect) is handled as gracefully as SIGINT (Ctrl+C)?
+
+**Solution**: Timer-based heartbeat mechanism ensures all signals are handled identically.
+
+**How It Works:**
+- **Hardware Timer**: Runs independently (not affected by CPU load)
+- **Timer Interrupt**: Fires every few milliseconds
+- **Kernel Signal Delivery**: Checks signals on every timer tick
+- **select.select() with timeout**: Provides regular wake-up opportunity (100ms)
+- **All Signals**: SIGINT, SIGTERM, SIGHUP, SIGQUIT handled identically
+
+**Why SIGHUP is Handled Gracefully:**
+
+```
+Remote Terminal Disconnect Scenario:
+
+1. SSH connection drops → SIGHUP sent
+2. Kernel queues SIGHUP
+3. Process in TASK_INTERRUPTIBLE (waiting on select.select)
+4. Timer interrupt fires (every few ms)
+5. Kernel checks signal queue
+6. SIGHUP delivered within 100ms
+7. Same graceful shutdown as SIGINT (Ctrl+C)
+```
+
+**Comparison:**
+
+| Signal | Trigger | Delivery Time | Graceful? |
+|--------|---------|---------------|-----------|
+| **SIGINT** | Ctrl+C | <100ms | ✅ Yes |
+| **SIGHUP** | Terminal disconnect | <100ms | ✅ Yes (same!) |
+| **SIGTERM** | System shutdown | <100ms | ✅ Yes (same!) |
+| **SIGQUIT** | Debug quit | <100ms | ✅ Yes (same!) |
+
+**Key Insight**: The timer-based heartbeat ensures **all signals are delivered within 100ms**, regardless of signal type or CPU load.
+
+---
+
 ## Next Steps
 
 1. **Test each enhancement** individually

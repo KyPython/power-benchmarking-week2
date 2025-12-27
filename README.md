@@ -132,24 +132,36 @@ The enhanced `unified_benchmark.py` now includes:
 
 ```
 power-benchmarking-week2/
-├── README.md                 # This file
+├── README.md                 # Main project overview
 ├── requirements.txt          # Python dependencies
-├── scripts/                  # All Python scripts
-│   ├── convert_model.py
-│   ├── benchmark.py
-│   ├── benchmark_power.py
-│   ├── unified_benchmark.py
-│   ├── power_logger.py
-│   ├── power_visualizer.py
-│   ├── app_power_analyzer.py
-│   ├── analyze_power_data.py
-│   ├── test_components.py
-│   └── arduino_power_receiver.ino
+├── scripts/                  # All executable code
+│   ├── convert_model.py      # PyTorch → CoreML conversion
+│   ├── benchmark.py          # PyTorch baseline
+│   ├── benchmark_power.py    # CoreML Neural Engine
+│   ├── unified_benchmark.py  # Integrated benchmark
+│   ├── power_logger.py       # Automated CSV logging
+│   ├── power_visualizer.py   # Data visualization
+│   ├── app_power_analyzer.py # App comparison
+│   ├── analyze_power_data.py # Energy analysis
+│   ├── test_components.py    # Component verification
+│   ├── test_full_integration.py # Integration tests
+│   ├── validate_*.py         # Validation scripts (6 total)
+│   ├── intelligent_baseline_detector.py # Adaptive baseline
+│   ├── auto_rerun_on_skew.py # Auto re-run on interference
+│   ├── enhanced_signal_handler.py # Multi-signal handling
+│   └── arduino_power_receiver.ino # Arduino sketch
 ├── docs/                     # Documentation
+│   ├── README.md             # Documentation index
 │   ├── PERFORMANCE.md        # Performance analysis
-│   ├── ARDUINO.md            # Arduino setup guide
-│   └── QUICK_REFERENCE.md    # Command reference
-└── MobileNetV2.mlpackage/    # CoreML model
+│   ├── ARDUINO.md            # Arduino setup
+│   ├── QUICK_REFERENCE.md    # Command reference
+│   ├── VISUAL_GUIDE.md       # Visual output guide
+│   ├── ARCHITECTURE.md       # System architecture
+│   ├── TECHNICAL_DEEP_DIVE.md # Advanced concepts
+│   ├── VALIDATION.md         # Complete validation guide
+│   ├── INTELLIGENT_ENHANCEMENTS.md # AI-powered features
+│   └── ENHANCEMENTS.md       # Script evolution
+└── MobileNetV2.mlpackage/    # CoreML model (generated)
 ```
 
 ## 🔬 Technical Details
