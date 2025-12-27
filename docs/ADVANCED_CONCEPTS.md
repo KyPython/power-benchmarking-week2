@@ -452,3 +452,16 @@ These three concepts demonstrate:
 
 Together, they show the suite's sophistication: not just measuring power, but understanding the underlying systems and providing real solutions.
 
+---
+
+## Practical Example: cloudd Analysis
+
+For a complete walkthrough of analyzing `cloudd` (iCloud sync) with right-skewed distribution, see **[CLOUDD_ANALYSIS.md](CLOUDD_ANALYSIS.md)**.
+
+This document demonstrates:
+- **The Formula**: Calculating burst frequency (58.8%) from Mean/Median
+- **The Signal**: Why `fsync()` is critical during high-power bursts
+- **The Decision**: Specific task policy command to force bursts to E-cores
+
+A complete workflow from analysis to actionable fix.
+

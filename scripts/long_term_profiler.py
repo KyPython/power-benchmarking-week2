@@ -234,6 +234,54 @@ class LongTermProfiler:
         
         return snapshots
     
+    def calculate_burst_fraction(
+        self,
+        mean_power: float,
+        median_power: float,
+        low_power: float,
+        high_power: float
+    ) -> Optional[float]:
+        """
+        Calculate burst fraction (f) for right-skewed distribution using universal formula.
+        
+        For right-skewed (Mean > Median):
+        - L = Low power (idle/baseline state)
+        - H = High power (burst state)
+        - f = Fraction of time at LOW power (idle)
+        - (1-f) = Fraction of time at HIGH power (bursting)
+        
+        Formula: Mean = (L × f) + (H × (1-f))
+        Solving for f: f = (Mean - H) / (L - H)
+        
+        Args:
+            mean_power: Mean power (higher than median for right-skewed)
+            median_power: Median power (typical baseline)
+            low_power: Minimum observed power (idle state)
+            high_power: Maximum observed power (burst state)
+        
+        Returns:
+            Burst fraction (1-f) = fraction of time bursting, or None if invalid
+        """
+        if mean_power <= median_power:
+            # Not right-skewed
+            return None
+        
+        if high_power <= low_power:
+            return None
+        
+        # Solve: Mean = (L × f) + (H × (1-f))
+        # Mean = L×f + H - H×f
+        # Mean = H + f×(L - H)
+        # f = (Mean - H) / (L - H)
+        
+        idle_fraction = (mean_power - high_power) / (low_power - high_power)
+        idle_fraction = max(0.0, min(1.0, idle_fraction))  # Clamp to [0, 1]
+        
+        # Burst fraction is (1 - idle_fraction)
+        burst_fraction = 1.0 - idle_fraction
+        
+        return burst_fraction
+    
     def analyze_daemon_offenders(self, snapshots: List[Dict]) -> Dict:
         """Analyze snapshots to identify worst battery drain offenders."""
         daemon_stats = defaultdict(lambda: {
@@ -260,11 +308,27 @@ class LongTermProfiler:
                 if info['on_p_cores']:
                     stats['on_p_cores_percent'] += 1
         
-        # Calculate averages
+        # Calculate averages and burst analysis
         for daemon, stats in daemon_stats.items():
             if stats['count'] > 0:
                 stats['avg_tax'] = stats['total_tax'] / stats['count']
                 stats['on_p_cores_percent'] = (stats['on_p_cores_percent'] / stats['count']) * 100
+                
+                # Calculate burst fraction if we have power data
+                # For right-skewed distributions (Mean > Median)
+                if 'mean_power' in stats and 'median_power' in stats:
+                    mean_p = stats.get('mean_power', 0)
+                    median_p = stats.get('median_power', 0)
+                    low_p = stats.get('min_power', 0)
+                    high_p = stats.get('max_power', 0)
+                    
+                    if mean_p > median_p and high_p > low_p:
+                        burst_fraction = self.calculate_burst_fraction(
+                            mean_p, median_p, low_p, high_p
+                        )
+                        if burst_fraction is not None:
+                            stats['burst_fraction'] = burst_fraction
+                            stats['burst_percent'] = burst_fraction * 100
         
         # Sort by average tax
         sorted_daemons = sorted(
@@ -331,12 +395,15 @@ class LongTermProfiler:
         elif daemon_lower == 'cloudd':
             # iCloud sync recommendations
             recommendations.extend([
-                "1. Reduce iCloud sync frequency:",
+                "1. Force cloudd bursts to E-cores (CRITICAL for bursty behavior):",
+                "   sudo taskpolicy -c 0x0F -p $(pgrep -f cloudd)  # E-cores: 0-3 (0x0F = 00001111)",
+                "   ",
+                "   Why: Right-skewed distribution (bursts) hitting P-cores wastes power.",
+                "   E-cores handle sync bursts efficiently, reducing Power Tax.",
+                "",
+                "2. Reduce iCloud sync frequency:",
                 "   System Settings > Apple ID > iCloud",
                 "   Disable 'iCloud Drive' or 'Desktop & Documents' if not needed",
-                "",
-                "2. Move cloudd to E-cores:",
-                "   sudo taskpolicy -c 0x0F -p $(pgrep -f cloudd)  # Force to E-cores",
                 "",
                 "3. Limit sync to Wi-Fi only:",
                 "   System Settings > Apple ID > iCloud > iCloud Drive > Options",
@@ -344,7 +411,11 @@ class LongTermProfiler:
                 "",
                 "4. Pause iCloud sync during high-usage:",
                 "   System Settings > Apple ID > iCloud",
-                "   Temporarily disable 'iCloud Drive' when not needed"
+                "   Temporarily disable 'iCloud Drive' when not needed",
+                "",
+                "5. Monitor burst frequency:",
+                "   Use profiler to track burst fraction (f) over time",
+                "   High burst fraction (>20%) indicates frequent sync activity"
             ])
         
         elif daemon_lower == 'bird':
@@ -419,6 +490,12 @@ class LongTermProfiler:
                 print(f"     Avg Tax: {stats['avg_tax']:6.1f} mW")
                 print(f"     Max Tax: {stats['max_tax']:6.1f} mW")
                 print(f"     On P-Cores: {stats['on_p_cores_percent']:5.1f}% of time")
+                
+                # Show burst fraction if available (right-skewed)
+                if 'burst_percent' in stats:
+                    print(f"     Burst Fraction: {stats['burst_percent']:5.1f}% (right-skewed)")
+                    print(f"     Interpretation: {stats['burst_percent']:.1f}% of time in high-power bursts")
+                
                 print(f"     Snapshots: {stats['count']}")
                 print()
         

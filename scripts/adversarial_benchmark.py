@@ -144,10 +144,21 @@ class AdversarialBenchmark:
         Ensure all data is written to disk before shutdown.
         
         This is critical for SIGHUP (SSH disconnect) to prevent data loss.
-        The lifecycle:
+        
+        **Why more critical during high-power bursts:**
+        1. **More data generated**: Bursts create rapid power changes, generating
+           more data points per second than idle periods
+        2. **Higher write load**: More data in buffers = more to flush
+        3. **More valuable data**: Bursts are the interesting part (idle is baseline)
+        4. **System stress**: High-power bursts indicate system activity, increasing
+           risk of data loss if process is killed abruptly
+        5. **Buffer saturation**: During bursts, buffers fill faster, making
+           fsync() more critical to prevent buffer loss
+        
+        **The lifecycle:**
         1. Signal received (<100ms via heartbeat)
         2. Signal handler called
-        3. Data flushed to disk (this function)
+        3. Data flushed to disk (this function) - CRITICAL during bursts
         4. running flag set to False
         5. Main loop exits gracefully
         6. Kernel can safely terminate process
@@ -167,11 +178,20 @@ class AdversarialBenchmark:
                             f"{log_entry['priority']},"
                             f"{log_entry.get('data_persisted', False)}\n"
                         )
-                    f.flush()  # Force write to disk
-                    os.fsync(f.fileno())  # Ensure OS-level persistence
+                    
+                    # CRITICAL: During high-power bursts, more data is in buffers
+                    # flush() alone isn't enough - we need fsync() to guarantee
+                    # data is on physical disk before process termination
+                    f.flush()  # Python buffer → OS buffer
+                    os.fsync(f.fileno())  # OS buffer → Physical disk
+                    
+                    # During bursts, this is especially critical because:
+                    # - More data points = larger buffers
+                    # - System under stress = higher risk of buffer loss
+                    # - Burst data is more valuable than idle data
             
             self.data_written = True
-            print(f"✅ Data persisted to {self.output_file}")
+            print(f"✅ Data persisted to {self.output_file} (critical during bursts)")
         except Exception as e:
             print(f"⚠️  Error persisting data: {e}")
     

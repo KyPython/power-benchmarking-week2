@@ -51,6 +51,9 @@ All documentation follows the **Single Responsibility Principle (SRP)** - each f
 - **[ADVANCED_CONCEPTS.md](ADVANCED_CONCEPTS.md)** - Deep technical explanations  
   *Purpose*: Universality of math, signal lifecycle, data-to-decisions workflow
 
+- **[CLOUDD_ANALYSIS.md](CLOUDD_ANALYSIS.md)** - Practical walkthrough example  
+  *Purpose*: Complete example analyzing cloudd (iCloud sync) demonstrating all three advanced concepts
+
 ---
 
 ## Navigation Guide
