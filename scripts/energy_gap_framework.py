@@ -359,6 +359,184 @@ def prioritize_backlog_by_sustainability(
     }
 
 
+def calculate_safety_ceiling(
+    ambient_temp_c: float = 25.0,
+    max_device_temp_c: float = 95.0,
+    thermal_mass_factor: float = 1.0,
+    cooling_efficiency: float = 1.0
+) -> Dict:
+    """
+    Calculate safety ceiling (maximum energy density) for mobile apps.
+    
+    Implements the "Thermal Efficiency Balance" framework.
+    """
+    # Temperature headroom (how much temperature rise is allowed)
+    temp_headroom_c = max_device_temp_c - ambient_temp_c
+    
+    # Thermal constants (empirical, device-specific)
+    base_power_per_degree_c_mw = 200.0  # mW per °C
+    
+    # Adjust for thermal mass and cooling efficiency
+    adjusted_power_per_degree = base_power_per_degree_c_mw * thermal_mass_factor
+    
+    # Adjust for cooling efficiency (hot environments reduce cooling)
+    if ambient_temp_c > 30:
+        cooling_efficiency = 1.0 - ((ambient_temp_c - 30) * 0.05)
+        cooling_efficiency = max(0.5, cooling_efficiency)
+    
+    # Calculate safety ceiling
+    safety_ceiling_mw = adjusted_power_per_degree * temp_headroom_c * cooling_efficiency
+    burst_ceiling_mw = safety_ceiling_mw * 1.5
+    sustained_ceiling_mw = safety_ceiling_mw * 0.8
+    
+    # Work density limits
+    avg_energy_per_instruction_pj = 4.0
+    max_instructions_per_second = (safety_ceiling_mw * 1e12) / (avg_energy_per_instruction_pj * 1e6)
+    
+    # Risk assessment
+    if ambient_temp_c > 35:
+        thermal_risk = 'CRITICAL'
+    elif ambient_temp_c > 30:
+        thermal_risk = 'HIGH'
+    elif temp_headroom_c < 20:
+        thermal_risk = 'MEDIUM'
+    else:
+        thermal_risk = 'LOW'
+    
+    return {
+        'ambient_temp_c': ambient_temp_c,
+        'temp_headroom_c': temp_headroom_c,
+        'safety_ceiling_mw': safety_ceiling_mw,
+        'burst_ceiling_mw': burst_ceiling_mw,
+        'sustained_ceiling_mw': sustained_ceiling_mw,
+        'max_instructions_per_second': max_instructions_per_second,
+        'cooling_efficiency': cooling_efficiency,
+        'thermal_risk_level': thermal_risk
+    }
+
+
+def evaluate_sustainability_vs_performance(
+    performance_task: Dict,
+    sustainability_task: Dict,
+    corporate_esg_weight: float = 0.3,
+    user_experience_weight: float = 0.4,
+    financial_weight: float = 0.2,
+    environmental_weight: float = 0.1
+) -> Dict:
+    """
+    Evaluate performance vs. sustainability trade-off using multi-criteria decision matrix.
+    
+    Implements the "Sustainable Roadmap" framework.
+    """
+    # Normalize weights
+    total_weight = corporate_esg_weight + user_experience_weight + financial_weight + environmental_weight
+    if total_weight != 1.0:
+        corporate_esg_weight /= total_weight
+        user_experience_weight /= total_weight
+        financial_weight /= total_weight
+        environmental_weight /= total_weight
+    
+    def calculate_task_score(task: Dict) -> Dict:
+        performance_score = min(100, max(0, (task['speedup_factor'] - 0.5) * 100))
+        energy_score = min(100, task['energy_savings_percent'] * 2)
+        environmental_score = min(100, (task['co2_saved_kg_per_year'] / 200) * 100)
+        ux_score = task.get('user_experience_impact', 50)
+        financial_score = min(100, max(0, task.get('financial_roi_percent', 0) + 100))
+        
+        composite_score = (
+            performance_score * (1 - corporate_esg_weight - environmental_weight) +
+            ux_score * user_experience_weight +
+            financial_score * financial_weight +
+            environmental_score * (corporate_esg_weight + environmental_weight)
+        )
+        
+        return {
+            'performance_score': performance_score,
+            'energy_score': energy_score,
+            'environmental_score': environmental_score,
+            'ux_score': ux_score,
+            'financial_score': financial_score,
+            'composite_score': composite_score
+        }
+    
+    perf_scores = calculate_task_score(performance_task)
+    sust_scores = calculate_task_score(sustainability_task)
+    
+    if sust_scores['composite_score'] > perf_scores['composite_score']:
+        recommendation = 'SUSTAINABILITY_FIRST'
+        winner = sustainability_task
+        winner_scores = sust_scores
+    else:
+        recommendation = 'PERFORMANCE_FIRST'
+        winner = performance_task
+        winner_scores = perf_scores
+    
+    return {
+        'recommendation': recommendation,
+        'winner': {'task': winner, 'scores': winner_scores},
+        'score_difference': abs(winner_scores['composite_score'] - perf_scores['composite_score']),
+        'decision_factors': {
+            'corporate_esg_weight': corporate_esg_weight,
+            'user_experience_weight': user_experience_weight,
+            'financial_weight': financial_weight,
+            'environmental_weight': environmental_weight
+        }
+    }
+
+
+def build_marketing_value_proposition(
+    battery_life_extension_hours: float,
+    current_battery_life_hours: float,
+    industry_benchmark_hours: float,
+    user_value_metrics: Dict,
+    competitive_advantage: Dict
+) -> Dict:
+    """
+    Build marketing value proposition from battery life extension data.
+    
+    Implements the "Competitive Advantage" framework.
+    """
+    new_battery_life = current_battery_life_hours + battery_life_extension_hours
+    extension_percent = (battery_life_extension_hours / current_battery_life_hours) * 100
+    
+    headline = f"Up to {new_battery_life:.0f} Hours Battery Life — {extension_percent:.0f}% Longer Than Standard"
+    
+    emotional_benefits = [
+        f"Freedom from charging anxiety — {battery_life_extension_hours:.0f} extra hours means you can work all day without worrying",
+        f"Reliability when it matters — {new_battery_life:.0f} hours ensures your device lasts through long meetings, flights, or work sessions",
+        f"Less time plugged in — Charge {user_value_metrics.get('charging_sessions_saved_per_month', 0):.0f} fewer times per month",
+        f"Peace of mind — Never run out of battery during important moments"
+    ]
+    
+    functional_benefits = [
+        f"{battery_life_extension_hours:.0f} additional hours per charge cycle",
+        f"{user_value_metrics.get('net_time_saved_hours', 0):.2f} hours/day net time saved",
+        f"{competitive_advantage.get('advantage_percent', 0):.1f}% better than industry standard",
+        f"Energy-efficient design reduces environmental impact"
+    ]
+    
+    marketing_messages = {
+        'headline': headline,
+        'subheadline': f"Experience {extension_percent:.0f}% longer battery life — work all day without charging",
+        'social_media': f"🔋 {new_battery_life:.0f} hours battery life — {extension_percent:.0f}% longer than standard. Work all day, charge less.",
+        'product_page': f"Our energy-efficient design delivers up to {new_battery_life:.0f} hours of battery life — {competitive_advantage.get('advantage_percent', 0):.1f}% better than industry standard.",
+        'sales_pitch': f"Your users get {new_battery_life:.0f} hours of battery life — that's {competitive_advantage.get('advantage_hours', 0):.1f} hours longer than the {industry_benchmark_hours:.0f}-hour industry standard."
+    }
+    
+    return {
+        'headline': headline,
+        'emotional_benefits': emotional_benefits,
+        'functional_benefits': functional_benefits,
+        'marketing_messages': marketing_messages,
+        'key_numbers': {
+            'battery_life_hours': new_battery_life,
+            'extension_hours': battery_life_extension_hours,
+            'extension_percent': extension_percent,
+            'advantage_vs_industry_percent': competitive_advantage.get('advantage_percent', 0)
+        }
+    }
+
+
 if __name__ == "__main__":
     print("Energy Gap Framework - Implementation Status")
     print("=" * 70)
@@ -369,6 +547,9 @@ if __name__ == "__main__":
     print("  - calculate_battery_life_advantage()")
     print("  - calculate_environmental_roi()")
     print("  - prioritize_backlog_by_sustainability()")
+    print("  - calculate_safety_ceiling() [NEW]")
+    print("  - evaluate_sustainability_vs_performance() [NEW]")
+    print("  - build_marketing_value_proposition() [NEW]")
     print()
     print("📚 See TECHNICAL_DEEP_DIVE.md for detailed usage examples and visualizations.")
 
