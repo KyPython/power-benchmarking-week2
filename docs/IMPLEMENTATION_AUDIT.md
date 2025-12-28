@@ -39,8 +39,8 @@
 - **Evidence**: `predict_thermal_throttling()` includes thermal constants, cooling threshold calculations, and burst fraction analysis
 
 ### 6. Energy Gap Framework
-- **Documentation**: `TECHNICAL_DEEP_DIVE.md` - Energy Gap Visualization, Complexity Tax, Thermal Paradox, Manager's Pitch, Carbon Break-Even
-- **Implementation**: `scripts/energy_gap_framework.py` (NEW)
+- **Documentation**: `TECHNICAL_DEEP_DIVE.md` - Energy Gap Visualization, Complexity Tax, Thermal Paradox, Manager's Pitch, Carbon Break-Even, Safety Ceiling, Sustainable Roadmap, Marketing Value Prop
+- **Implementation**: `scripts/energy_gap_framework.py`
 - **Status**: ✅ **100% Implemented**
 - **Evidence**: All core functions implemented:
   - `calculate_energy_gap()`
@@ -49,6 +49,9 @@
   - `calculate_battery_life_advantage()` (Manager's Pitch)
   - `calculate_environmental_roi()` (Carbon Break-Even)
   - `prioritize_backlog_by_sustainability()` (Carbon Backlog)
+  - `calculate_safety_ceiling()` (Thermal Efficiency Balance) [NEW]
+  - `evaluate_sustainability_vs_performance()` (Sustainable Roadmap) [NEW]
+  - `build_marketing_value_proposition()` (Competitive Advantage) [NEW]
 
 ### 7. Validation Scripts
 - **Documentation**: `docs/VALIDATION.md`
@@ -126,6 +129,9 @@
 | **Burst Fraction** | ✅ | ✅ | 100% |
 | **Thermal Throttling** | ✅ | ✅ | 100% |
 | **Energy Gap Calculations** | ✅ | ✅ | 100% |
+| **Safety Ceiling (Mobile Apps)** | ✅ | ✅ | 100% |
+| **Sustainable Roadmap Decision** | ✅ | ✅ | 100% |
+| **Marketing Value Proposition** | ✅ | ✅ | 100% |
 | **Validation Scripts** | ✅ | ✅ | 100% |
 | **Advanced Features** | ✅ | ✅ | 100% |
 | **Intelligent Enhancements** | ✅ | ✅ | 100% |
