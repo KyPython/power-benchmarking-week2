@@ -4260,6 +4260,183 @@ def detect_user_frustration(activity_events, throttle_adjustment_time, baseline_
 
 **Result**: `NATURAL_ACTIVITY` → Controller **maintains throttling** (no adjustment needed).
 
+### The Behavioral Science of Throttling: Fast-Typing vs. Frantic Mashing
+
+**Challenge**: How do we distinguish a **fast-typing programmer** (natural, productive activity) from a **user frantically mashing keys** because a window won't respond (frustration indicator)?
+
+**Key Insight**: Both scenarios generate **high keyboard activity rates**, but they differ in **temporal structure**, **key diversity**, and **correlation with system events**.
+
+#### Temporal Correlation Analysis: The Timing Pattern
+
+**Fast-Typing Programmer** (Natural Activity):
+```
+Time Pattern:
+T=0s:  [Throttle applied at 80%]
+T=0.1s: Key 'i' (typing continues)
+T=0.3s: Key 'f' (typing continues)
+T=0.5s: Key ' ' (space, natural typing rhythm)
+T=0.7s: Key 'x' (typing continues)
+T=0.9s: Key '=' (typing continues)
+T=1.2s: Key '1' (typing continues)
+
+Characteristics:
+- Activity CONTINUES at steady rate (no correlation with throttle timing)
+- Natural typing rhythm (100-150 WPM = ~8-12 keystrokes/second)
+- Activity distributed evenly over time
+- No sudden spike after throttling event
+```
+
+**Frustrated User Mashing Keys** (Frustration):
+```
+Time Pattern:
+T=0s:  [Throttle applied at 80%]
+T=0.05s: Key 'Enter' (window didn't respond, trying again)
+T=0.15s: Key 'Enter' (still not responding, mashing)
+T=0.25s: Key 'Enter' (frustrated, repeating)
+T=0.35s: Key 'Esc' (trying escape, window frozen)
+T=0.45s: Key 'Enter' (still mashing)
+T=0.55s: Key 'Space' (trying different key)
+T=0.65s: Key 'Enter' (back to enter, frantic)
+
+Characteristics:
+- Activity SPIKES immediately after throttle (high correlation)
+- Irregular, frantic rhythm (faster than natural typing, ~15-20 keystrokes/second)
+- Activity clustered in immediate post-throttle window (0-2 seconds)
+- Sudden spike correlated with system event (throttling)
+```
+
+#### Algorithm: Distinguishing Patterns
+
+```python
+def analyze_keyboard_activity_pattern(keystroke_events, throttle_time, user_baseline):
+    """
+    Distinguish fast-typing from frantic mashing using temporal correlation.
+    
+    Returns: "FAST_TYPING" | "FRANTIC_MASHING" | "UNCERTAIN"
+    """
+    # 1. Temporal Correlation: Check if activity spike correlates with throttle
+    immediate_window = [e for e in keystroke_events 
+                       if throttle_time <= e.time <= throttle_time + 2.0]
+    pre_throttle_window = [e for e in keystroke_events 
+                          if throttle_time - 2.0 <= e.time < throttle_time]
+    
+    immediate_rate = len(immediate_window) / 2.0  # Keystrokes per second
+    pre_throttle_rate = len(pre_throttle_window) / 2.0
+    
+    # Correlation ratio: If immediate rate >> pre-throttle rate → Frustration
+    correlation_ratio = immediate_rate / pre_throttle_rate if pre_throttle_rate > 0 else 0
+    
+    # 2. Key Diversity: Fast-typing uses diverse keys, mashing repeats same keys
+    immediate_keys = set(e.key for e in immediate_window)
+    key_diversity = len(immediate_keys) / len(immediate_window) if immediate_window else 0
+    
+    # Fast-typing: High diversity (different keys), Frantic: Low diversity (repeating keys)
+    # Natural typing: ~0.8-0.9 diversity (most keys unique), Mashing: ~0.2-0.4 diversity (repetitive)
+    
+    # 3. Rhythm Analysis: Natural typing has regular rhythm, mashing is irregular
+    if len(immediate_window) >= 3:
+        intervals = [immediate_window[i+1].time - immediate_window[i].time 
+                    for i in range(len(immediate_window)-1)]
+        interval_std_dev = statistics.stdev(intervals) if len(intervals) > 1 else 0
+        interval_mean = statistics.mean(intervals) if intervals else 0
+        
+        # Coefficient of Variation (CV): Lower = more regular (natural typing)
+        rhythm_regularity = interval_std_dev / interval_mean if interval_mean > 0 else 0
+        # Natural typing: CV ~0.2-0.3 (regular), Mashing: CV ~0.5-0.8 (irregular)
+    
+    # 4. Baseline Comparison: Compare to user's normal typing rate
+    user_normal_rate = user_baseline.get('keystrokes_per_second', 10)  # Typical: 8-12 WPM
+    rate_above_baseline = immediate_rate / user_normal_rate if user_normal_rate > 0 else 0
+    
+    # Decision Logic
+    frustration_signals = 0
+    
+    # Signal 1: High correlation with throttle (activity spike)
+    if correlation_ratio > 1.5:  # Immediate activity 1.5x higher than pre-throttle
+        frustration_signals += 2  # Strong signal
+    
+    # Signal 2: Low key diversity (repeating same keys)
+    if key_diversity < 0.5:  # Less than 50% unique keys
+        frustration_signals += 2  # Strong signal (mashing pattern)
+    
+    # Signal 3: Irregular rhythm (high CV)
+    if rhythm_regularity > 0.5:  # High variability in timing
+        frustration_signals += 1  # Supporting signal
+    
+    # Signal 4: Rate significantly above baseline (but not too extreme)
+    if 1.3 < rate_above_baseline < 2.5:  # 30-150% above normal (frantic but not spam)
+        frustration_signals += 1  # Supporting signal
+    
+    # Decision
+    if frustration_signals >= 4:
+        return "FRANTIC_MASHING"  # Multiple strong signals
+    elif frustration_signals <= 1:
+        return "FAST_TYPING"  # Natural activity
+    else:
+        return "UNCERTAIN"  # Ambiguous, monitor closely
+```
+
+#### Real-World Example: Code Editor Scenario
+
+**Scenario**: Developer is coding in VS Code. Thermal controller throttles CPU to 85% during a compile. Developer continues typing code.
+
+**Fast-Typing Pattern** (Natural):
+```
+T=0.0s: [CPU throttled to 85%]
+T=0.1s: Key 'd' (typing: "def")
+T=0.2s: Key 'e' (typing: "def")
+T=0.3s: Key 'f' (typing: "def")
+T=0.4s: Key ' ' (space after "def")
+T=0.6s: Key 'm' (typing: "my_function")
+T=0.7s: Key 'y' (typing: "my_function")
+T=0.8s: Key '_' (typing: "my_function")
+T=1.0s: Key 'f' (typing: "my_function")
+
+Analysis:
+- Correlation Ratio: 1.0 (same rate before/after throttle) → No correlation
+- Key Diversity: 0.9 (9 unique keys / 10 total) → High diversity (natural typing)
+- Rhythm Regularity: 0.25 (CV) → Regular rhythm (natural typing)
+- Rate vs Baseline: 1.0x (matches baseline) → Normal rate
+
+Result: "FAST_TYPING" → Maintain throttling (user not frustrated)
+```
+
+**Frustrated Mashing Pattern** (Frustration):
+```
+T=0.0s: [CPU throttled to 85%, window becomes unresponsive]
+T=0.05s: Key 'Enter' (command didn't execute, trying again)
+T=0.12s: Key 'Enter' (still not responding)
+T=0.18s: Key 'Enter' (frustrated, repeating)
+T=0.25s: Key 'Ctrl' (trying keyboard shortcut)
+T=0.30s: Key 'C' (Ctrl+C to cancel)
+T=0.38s: Key 'Enter' (back to Enter, frantic)
+T=0.45s: Key 'Enter' (still mashing)
+
+Analysis:
+- Correlation Ratio: 3.5 (immediate rate 3.5x higher than pre-throttle) → Strong correlation
+- Key Diversity: 0.3 (3 unique keys / 10 total) → Low diversity (repetitive mashing)
+- Rhythm Regularity: 0.65 (CV) → Irregular rhythm (frantic mashing)
+- Rate vs Baseline: 2.0x (double baseline) → Elevated rate (frantic)
+
+Result: "FRANTIC_MASHING" → Reduce throttling (user is frustrated, restore responsiveness)
+```
+
+#### Key Distinctions Summary
+
+| Characteristic | Fast-Typing (Natural) | Frantic Mashing (Frustration) |
+|---------------|----------------------|------------------------------|
+| **Temporal Correlation** | No correlation with throttle | Strong correlation (spike after throttle) |
+| **Key Diversity** | High (0.8-0.9, diverse keys) | Low (0.2-0.4, repeating keys) |
+| **Rhythm Regularity** | Regular (CV ~0.2-0.3) | Irregular (CV ~0.5-0.8) |
+| **Activity Rate** | Matches baseline (1.0x) | Elevated above baseline (1.5-2.5x) |
+| **Duration** | Sustained over time | Clustered in immediate window (0-2s) |
+| **Pattern** | Purposeful, sequential | Repetitive, frantic |
+
+**Implementation Benefit**: By distinguishing these patterns, the thermal controller can:
+- **Avoid false positives**: Don't reduce throttling for productive fast-typing
+- **Respond to real frustration**: Reduce throttling when user is genuinely frustrated
+- **Maintain thermal safety**: Only adjust when user experience is actually impacted
+
 ### Implementation Benefits
 
 - **Reduces False Positives**: Natural activity doesn't trigger unnecessary throttling adjustments
@@ -4414,6 +4591,222 @@ Energy Saved: 1162.9 mJ per task (93.0% reduction)
 - **Stable measurement**: Total energy for N tasks is measurable with high precision
 - **Comparable**: Same task = same work, allowing fair comparison
 - **Actionable**: Results directly inform optimization decisions
+
+### The Physics of the Stable Baseline: Why "Energy per Task" Trumps "Energy per Instruction"
+
+**Question**: Why is "Energy per Task" a more reliable metric for developers than "Energy per Instruction" (EPI), especially when modern CPUs use complex **out-of-order execution**?
+
+**Key Insight**: Modern CPUs (Intel, AMD, Apple Silicon) use sophisticated **out-of-order execution**, **speculative execution**, and **micro-op fusion**, making individual instruction energy costs **fundamentally unpredictable** and **context-dependent**. "Energy per Task" aggregates over many instructions, averaging out these variations and providing **stable, meaningful measurements**.
+
+#### The Out-of-Order Execution Problem
+
+**Modern CPU Pipeline** (simplified):
+```
+Instruction Fetch → Decode → Rename → Dispatch → Execute → Retire
+
+Out-of-Order Execution:
+- Instructions execute as data dependencies allow (not program order)
+- Multiple instructions execute simultaneously (superscalar)
+- Instructions can be reordered, fused, or split into micro-ops
+- Energy cost depends on pipeline state, not just instruction type
+```
+
+**Example: The Same Instruction, Different Energy Costs**
+
+```python
+# Instruction: ADD R1, R2, R3  (Add registers R2 and R3, store in R1)
+
+Scenario A: Cache hit, no dependencies, pipeline ready
+  Energy: 1.2 pJ (picojoules)
+  Execution: 1 cycle
+
+Scenario B: Cache miss, data dependency, pipeline stall
+  Energy: 15.8 pJ (13x higher!)
+  Execution: 12 cycles (waiting for memory)
+
+Scenario C: Branch misprediction, pipeline flush
+  Energy: 45.3 pJ (38x higher!)
+  Execution: 20 cycles (re-execute)
+
+Scenario D: Micro-op fusion with previous instruction
+  Energy: 0.8 pJ (lower, shared overhead)
+  Execution: 0.5 cycles (fused execution)
+```
+
+**Problem**: The **same instruction** (`ADD`) has energy costs ranging from **0.8 pJ to 45.3 pJ** (56x variation!) depending on:
+- Cache state (hit vs miss)
+- Data dependencies (independent vs dependent)
+- Pipeline state (ready vs stalled)
+- Branch prediction (correct vs mispredicted)
+- Micro-op fusion opportunities
+
+#### Why "Energy per Instruction" Fails
+
+**Measurement Challenges**:
+
+1. **Cannot Isolate Individual Instructions**:
+   - Power meters sample at **millisecond timescales** (500ms intervals)
+   - Instructions execute in **nanoseconds** (billions per second)
+   - **Impossible** to measure a single instruction's energy consumption
+
+2. **Context-Dependent Variability**:
+   - Instruction energy depends on **runtime state** (cache, pipeline, dependencies)
+   - **Same instruction, different energy** (0.8 pJ to 45.3 pJ variation)
+   - **No stable baseline** for comparison
+
+3. **Out-of-Order Execution Obfuscation**:
+   - Instructions don't execute in program order
+   - **Energy attribution** to a specific instruction is ambiguous
+   - Which instruction "caused" the cache miss? (The one that requested it, or the one that needed the data?)
+
+4. **Micro-Op Fusion**:
+   - Multiple instructions **fused** into single micro-op
+   - Energy shared between instructions
+   - **Cannot attribute energy** to individual instructions
+
+**Example Failure Case**:
+```python
+# Task: Sum array of 1,000,000 integers
+
+# Instruction-level analysis (FAILS):
+for i in range(1_000_000):
+    result += arr[i]  # ADD instruction
+
+# Problem: Each ADD instruction has different energy:
+# - arr[0]: 1.2 pJ (cache hit)
+# - arr[1]: 1.1 pJ (cache hit)
+# - arr[1000]: 15.8 pJ (cache miss)
+# - arr[1001]: 1.3 pJ (cache hit)
+# - ... (highly variable)
+
+# Average EPI: (1.2 + 1.1 + 15.8 + 1.3 + ...) / 1_000_000 = ???
+# - Depends on cache behavior (unpredictable)
+# - Depends on branch prediction (unpredictable)
+# - Depends on pipeline state (unpredictable)
+
+# Result: Unreliable, context-dependent, not actionable
+```
+
+#### Why "Energy per Task" Succeeds
+
+**Aggregation Benefits**:
+
+1. **Averages Out Variability**:
+   - Task includes **millions of instructions** (1,000,000 iterations × ~10 instructions each = 10M instructions)
+   - **High variation** at instruction level (0.8 pJ to 45.3 pJ)
+   - **Low variation** at task level (aggregated over many instructions)
+   - **Statistical averaging** smooths out outliers
+
+2. **Stable Measurement**:
+   - Power meters can reliably measure **total energy** for task execution (mJ scale)
+   - **Precise timing** (start/stop timestamps)
+   - **Stable baseline** (idle system power, measurable with high precision)
+   - **High Signal-to-Noise** ratio (task energy >> measurement noise)
+
+3. **Context-Independent**:
+   - Task represents **semantic work** ("sum 1M integers"), not implementation details
+   - Energy per task **captures overall efficiency**, regardless of:
+     - Cache behavior (averaged over many accesses)
+     - Branch prediction (averaged over many branches)
+     - Pipeline stalls (averaged over execution time)
+   - **Same task = same work** = fair comparison
+
+4. **Actionable for Developers**:
+   - Developers think in **tasks** ("process array", "render frame", "compute hash")
+   - Results directly inform **optimization decisions** ("use vectorization for 14x efficiency")
+   - **Meaningful units** (mJ per task) for decision-making
+
+**Example Success Case**:
+```python
+# Task: Sum array of 1,000,000 integers
+
+# Task-level analysis (SUCCEEDS):
+energy_per_task_for_loop = measure_energy_per_task(
+    lambda: sum_of_squares_for_loop(arr),
+    num_iterations=100
+)
+# Result: 750.3 mJ ± 0.06 mJ (stable, precise)
+
+energy_per_task_vectorized = measure_energy_per_task(
+    lambda: sum_of_squares_vectorized(arr),
+    num_iterations=100
+)
+# Result: 52.4 mJ ± 0.04 mJ (stable, precise)
+
+# Comparison:
+improvement = 750.3 / 52.4 = 14.3x more efficient ✅
+
+# Interpretation:
+# - For loop: 750.3 mJ per task (interpreted Python, many instructions)
+# - Vectorized: 52.4 mJ per task (optimized NumPy, fewer instructions, SIMD)
+# - Clear, actionable result: Use vectorization for 14.3x efficiency gain
+```
+
+#### Mathematical Explanation: Variance Reduction Through Aggregation
+
+**Statistical Property**: Aggregating many random variables (instructions) with high variance reduces overall variance.
+
+**Variance of Sum**:
+```
+If X₁, X₂, ..., Xₙ are independent random variables (instruction energies):
+Var(Sum) = Var(X₁) + Var(X₂) + ... + Var(Xₙ)
+
+If X₁, X₂, ..., Xₙ have similar variance σ²:
+Var(Sum) = n × σ²
+
+Variance of Average:
+Var(Average) = Var(Sum) / n² = (n × σ²) / n² = σ² / n
+
+Coefficient of Variation (CV):
+CV = StdDev / Mean = √(Var) / Mean = √(σ² / n) / Mean = (σ / Mean) / √n
+
+As n increases → CV decreases → More stable measurement
+```
+
+**Example**:
+- Single instruction: CV = 2.0 (high variability, 200% relative standard deviation)
+- Task with 10M instructions: CV = 2.0 / √(10,000,000) = 2.0 / 3,162 = 0.0006 (0.06% relative standard deviation)
+
+**Result**: Task-level measurement is **3,162x more stable** than instruction-level measurement!
+
+#### Real-World Developer Workflow
+
+**Developer Question**: "Should I use a `for` loop or NumPy vectorization for this array operation?"
+
+**With "Energy per Instruction"** (FAILS):
+```
+For Loop:
+  Instruction 1 (ADD): 1.2 pJ (cache hit)
+  Instruction 2 (ADD): 15.8 pJ (cache miss)
+  Instruction 3 (ADD): 1.1 pJ (cache hit)
+  ...
+  Average EPI: ??? (unpredictable, context-dependent)
+
+NumPy:
+  Instruction 1 (SIMD): ??? pJ (unknown)
+  Instruction 2 (SIMD): ??? pJ (unknown)
+  ...
+  Average EPI: ??? (unpredictable, context-dependent)
+
+Comparison: Cannot reliably compare (too much variability)
+Decision: Cannot make informed optimization choice ❌
+```
+
+**With "Energy per Task"** (SUCCEEDS):
+```
+For Loop:
+  Energy per Task: 750.3 mJ ± 0.06 mJ (stable, precise)
+  Confidence: 99.9% (high precision from stable baseline)
+
+NumPy Vectorized:
+  Energy per Task: 52.4 mJ ± 0.04 mJ (stable, precise)
+  Confidence: 99.9% (high precision from stable baseline)
+
+Comparison: 750.3 / 52.4 = 14.3x improvement
+Decision: Use NumPy vectorization for 14.3x efficiency gain ✅
+```
+
+**Conclusion**: "Energy per Task" provides **stable, meaningful, actionable** measurements that directly inform optimization decisions, while "Energy per Instruction" fails due to **fundamental unpredictability** of modern CPU out-of-order execution.
 
 ### Precision Benefits from Stable Baseline
 
@@ -4681,6 +5074,201 @@ thermal_constants_nvidia_gpu = {
    - Cannot be "computed" from specifications
    - Cannot be "estimated" from similar hardware
    - **Must be measured on actual target hardware**
+
+### The Re-Calibration Challenge: Why GPU Heat Dissipation is More Complex
+
+**Question**: You noted that Thermal Constants (τ) are the hardest to port. If we moved this to an NVIDIA GPU, why would the "Heat Dissipation" (τ_dissipate) be so much more complex to measure than on a mobile-first Apple M2?
+
+**Key Insight**: NVIDIA GPUs are **desktop/server-class devices** with **active cooling** (fans, liquid cooling), **variable fan speeds**, **multi-zone thermal management**, and **complex thermal coupling** between GPU cores, memory, and VRMs. This makes heat dissipation **highly dynamic** and **workload-dependent**, compared to Apple M2's **passive/controlled cooling** in a **mobile-first design**.
+
+#### Apple M2: Mobile-First Thermal Design (Simpler)
+
+**Thermal Characteristics**:
+- **Passive/Controlled Cooling**: Laptop chassis, thin heat pipes, no active fans (or minimal fan control)
+- **Unified Thermal System**: Single thermal zone, shared heat spreader
+- **Predictable Cooling**: Heat dissipation is **relatively constant** (depends mainly on ambient temperature)
+- **Mobile Optimization**: Designed for **battery life**, so cooling is **passive** and **predictable**
+
+**Heat Dissipation Profile**:
+```
+Apple M2 ANE (idle → load → idle):
+
+T=0s:  Start 100% load (3000 mW)
+T=0.3s: Peak power (3000 mW), temperature rising
+T=1.0s: Temperature stabilizes (thermal equilibrium)
+T=2.0s: Stop load, return to idle
+T=3.0s: Power drops to 800 mW (idle)
+T=5.0s: Temperature returns to baseline (passive cooling)
+       → τ_dissipate ≈ 2000ms (consistent, predictable)
+
+Characteristics:
+- Passive cooling: Heat dissipates through chassis/heat pipes
+- Predictable: Cooling rate relatively constant
+- Single thermal zone: Uniform cooling
+- Simple model: Exponential decay with constant τ_dissipate
+```
+
+**Measurement**:
+```python
+# Apple M2: Simple exponential decay model
+def measure_m2_dissipation():
+    # Stop load, monitor power decay
+    power_data = [3000, 2500, 2000, 1500, 1000, 800, 800, 800]  # mW
+    time_data = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0]  # seconds
+    
+    # Fit exponential: P(t) = P_baseline + (P_peak - P_baseline) * e^(-t/τ)
+    # Single exponential decay → Simple curve fitting
+    tau_dissipate = 2.0  # seconds (2000ms)
+    
+    return tau_dissipate
+```
+
+#### NVIDIA GPU: Desktop-Class Thermal Design (Complex)
+
+**Thermal Characteristics**:
+- **Active Cooling**: Variable-speed fans, liquid cooling systems, complex fan curves
+- **Multi-Zone Thermal System**: GPU cores, memory (GDDR6X), VRMs (voltage regulators) - **different thermal zones**
+- **Dynamic Cooling**: Fan speed **adapts to temperature** → Cooling rate **changes over time**
+- **Workload-Dependent**: Different workloads heat different zones (compute vs memory-bound)
+
+**Heat Dissipation Profile** (More Complex):
+```
+NVIDIA GPU (idle → load → idle):
+
+T=0s:  Start 100% load (250W GPU power)
+T=0.5s: Peak power (250W), temperature rising, fans at 30% (quiet)
+T=2.0s: Temperature threshold reached, fans ramp to 60%
+T=3.0s: Temperature continues rising, fans ramp to 80%
+T=4.0s: Temperature stabilizes (thermal equilibrium), fans at 80%
+T=5.0s: Stop load, return to idle
+T=5.5s: Power drops to 20W (idle), temperature starts dropping
+T=6.0s: Fans reduce to 60% (temperature dropping)
+T=7.0s: Fans reduce to 40% (temperature dropping)
+T=8.0s: Fans reduce to 20% (temperature near baseline)
+T=10.0s: Temperature returns to baseline, fans at 20% (idle)
+
+Characteristics:
+- Active cooling: Fan speed adapts to temperature
+- Variable cooling rate: Faster when fans at 80%, slower when fans at 20%
+- Multi-zone: GPU cores, memory, VRMs cool at different rates
+- Complex model: Multi-exponential decay with variable τ_dissipate
+```
+
+**Measurement Challenges**:
+
+1. **Variable Fan Speed**:
+   - Fan speed **adapts to temperature** (30% → 60% → 80% → 60% → 40% → 20%)
+   - Cooling rate **changes over time** (faster when fans at 80%, slower when fans at 20%)
+   - **Cannot model with single exponential** → Need **piecewise exponential** or **differential equation model**
+
+2. **Multi-Zone Thermal Coupling**:
+   - GPU cores, memory (GDDR6X), and VRMs are **different thermal zones**
+   - Heat **transfers between zones** (GPU heats memory, memory heats VRMs)
+   - **Complex thermal coupling** → Cannot measure each zone independently
+
+3. **Workload-Dependent Dissipation**:
+   - **Compute-bound workload**: Heats GPU cores more, memory less
+   - **Memory-bound workload**: Heats memory more, GPU cores less
+   - **Different workloads → different cooling profiles**
+
+4. **Ambient Temperature Sensitivity**:
+   - Desktop GPUs in **varied environments** (hot rooms, cold rooms, cases with poor airflow)
+   - Cooling efficiency **highly dependent on ambient temperature and case airflow**
+   - **Less predictable** than mobile device (which has controlled thermal environment)
+
+**Measurement** (Much More Complex):
+```python
+# NVIDIA GPU: Complex multi-exponential decay with variable fan speed
+def measure_nvidia_dissipation():
+    # Stop load, monitor power decay AND fan speed
+    power_data = [250, 200, 150, 120, 80, 50, 30, 20, 20]  # W
+    fan_speed_data = [80, 80, 60, 40, 30, 25, 22, 20, 20]  # %
+    time_data = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]  # seconds
+    
+    # Problem: Single exponential doesn't fit!
+    # Cooling rate changes as fan speed changes
+    
+    # Solution 1: Piecewise exponential (different τ for each fan speed range)
+    tau_fan_80 = 0.8   # seconds (fans at 80%, fast cooling)
+    tau_fan_60 = 1.2   # seconds (fans at 60%, medium cooling)
+    tau_fan_40 = 1.8   # seconds (fans at 40%, slow cooling)
+    tau_fan_20 = 3.0   # seconds (fans at 20%, very slow cooling)
+    
+    # Solution 2: Differential equation model (fan speed affects cooling rate)
+    # dT/dt = -k(T - T_ambient) * f(fan_speed)
+    # Where f(fan_speed) is a function mapping fan speed to cooling efficiency
+    
+    # Which τ_dissipate to use? Depends on fan speed!
+    # Need to model: τ_dissipate = f(fan_speed, ambient_temp, case_airflow)
+    
+    return {
+        'tau_dissipate': 'variable',  # Not a single constant!
+        'tau_by_fan_speed': {
+            80: 0.8,
+            60: 1.2,
+            40: 1.8,
+            20: 3.0
+        },
+        'cooling_model': 'differential_equation'  # More complex than exponential
+    }
+```
+
+#### Comparison: Measurement Complexity
+
+| Aspect | Apple M2 (Mobile) | NVIDIA GPU (Desktop) |
+|--------|------------------|---------------------|
+| **Cooling Type** | Passive/Controlled | Active (Variable Fans) |
+| **Thermal Zones** | Single (Unified) | Multiple (GPU, Memory, VRMs) |
+| **Cooling Rate** | Constant (Predictable) | Variable (Fan-speed dependent) |
+| **Model Complexity** | Single exponential | Piecewise/Differential equation |
+| **τ_dissipate** | Single constant (~2000ms) | Function of fan speed, ambient temp |
+| **Measurement Effort** | Low (simple curve fitting) | High (multiple test conditions) |
+| **Workload Dependency** | Low (similar cooling) | High (different zones heat differently) |
+
+#### Why This Matters for Porting
+
+**Apple M2** (Simple):
+```python
+# Single constant, easy to measure
+thermal_constants = {
+    'heat_build_ms': 300,
+    'heat_dissipate_ms': 2000,  # Single constant
+    'cooling_threshold': 0.13
+}
+```
+
+**NVIDIA GPU** (Complex):
+```python
+# Variable dissipation, requires complex model
+thermal_constants = {
+    'heat_build_ms': 500,  # Still measurable
+    
+    # Dissipation is NOT a single constant!
+    'heat_dissipate_ms': 'variable',  # Depends on fan speed
+    'dissipation_model': {
+        'type': 'piecewise_exponential',
+        'tau_by_fan_speed': {
+            80: 800,   # ms (fans at 80%)
+            60: 1200,  # ms (fans at 60%)
+            40: 1800,  # ms (fans at 40%)
+            20: 3000   # ms (fans at 20%)
+        },
+        'fan_curve': load_fan_curve(),  # How fan speed responds to temperature
+        'ambient_temp_effect': 0.1,  # Cooling efficiency per °C ambient
+        'case_airflow_factor': 1.0   # Case airflow multiplier
+    },
+    
+    # Cooling threshold becomes a function, not a constant
+    'cooling_threshold_function': lambda fan_speed, ambient_temp: 
+        calculate_threshold(fan_speed, ambient_temp)
+}
+```
+
+**Porting Effort Comparison**:
+- **Apple M2**: Measure once, get single constant → **2-4 hours**
+- **NVIDIA GPU**: Measure multiple conditions (different fan speeds, ambient temps, workloads) → **8-16 hours** (4-8x more complex!)
+
+**Conclusion**: GPU heat dissipation is **significantly more complex** because it involves **dynamic fan control**, **multi-zone thermal coupling**, and **workload-dependent behavior**, requiring **complex models** (piecewise exponentials or differential equations) instead of a **simple constant**.
 
 ### Summary: Porting Difficulty
 
