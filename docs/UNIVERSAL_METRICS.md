@@ -254,6 +254,177 @@ output = session.run(None, {'input': data})
 
 ---
 
+## The Cross-Platform Blueprint: Re-Calibration Difficulty
+
+**Question**: If we wanted to port this to a Linux system with an Intel CPU and an NVIDIA GPU, which formulas would be the most difficult to "re-calibrate"?
+
+### Difficulty Ranking (Hardest → Easiest)
+
+#### 🔴 **Most Difficult: Thermal Time Constants**
+
+**Why it's hard**:
+- Requires **empirical measurement** (can't calculate from specs)
+- Depends on **physical properties** (silicon, heat sink, thermal paste)
+- Varies with **ambient temperature** (different in hot vs cold rooms)
+- Needs **extended testing** (hours of thermal stress tests)
+
+**What needs to change**:
+```python
+# Apple Silicon M2 ANE
+thermal_constants = {
+    'heat_build_ms': 300,
+    'heat_dissipate_ms': 2000,
+    'cooling_threshold': 0.13  # 13%
+}
+
+# Intel CPU (needs measurement)
+thermal_constants = {
+    'heat_build_ms': ???,  # Must measure
+    'heat_dissipate_ms': ???,  # Must measure
+    'cooling_threshold': ???  # Calculate from above
+}
+
+# NVIDIA GPU (needs measurement)
+thermal_constants = {
+    'heat_build_ms': ???,  # Must measure
+    'heat_dissipate_ms': ???,  # Must measure
+    'cooling_threshold': ???  # Calculate from above
+}
+```
+
+**Re-calibration process**:
+1. Run thermal stress test (100% load for 5 minutes)
+2. Measure power over time (capture heat buildup curve)
+3. Stop stress, measure power decay (capture heat dissipation curve)
+4. Fit exponential curves to extract time constants
+5. Calculate cooling threshold: `f_cool = τ_build / (τ_build + τ_dissipate)`
+
+**Difficulty**: ⭐⭐⭐⭐⭐ (Very Hard - requires hardware testing)
+
+---
+
+#### 🟠 **Moderately Difficult: Power Monitoring Tool Integration**
+
+**Why it's moderate**:
+- Different tools have **different output formats**
+- Need to **parse different syntax** (powermetrics vs nvidia-smi vs perf)
+- May need **multiple tools** (one for CPU, one for GPU)
+- Some tools require **different permissions** (sudo vs user)
+
+**What needs to change**:
+```python
+# Apple Silicon (macOS)
+def parse_powermetrics_ane(line):
+    match = re.search(r'ANE\s+Power[:\s]+([\d.]+)\s*mW', line)
+    return float(match.group(1)) if match else None
+
+# Intel CPU (Linux)
+def parse_perf_cpu(line):
+    # perf output format is different
+    match = re.search(r'power:energy-pkg:([\d.]+)', line)
+    return float(match.group(1)) * 1000  # Convert J to mW
+
+# NVIDIA GPU (Linux)
+def parse_nvidia_smi_gpu(line):
+    # nvidia-smi output format is different
+    match = re.search(r'Power Draw\s+:\s+([\d.]+)\s*W', line)
+    return float(match.group(1)) * 1000  # Convert W to mW
+```
+
+**Re-calibration process**:
+1. Identify available power monitoring tools
+2. Test each tool's output format
+3. Write parser for each tool
+4. Handle unit conversions (W vs mW, J vs mJ)
+5. Integrate multiple tools if needed
+
+**Difficulty**: ⭐⭐⭐ (Moderate - requires tool-specific parsing)
+
+---
+
+#### 🟡 **Somewhat Difficult: Core Architecture Detection**
+
+**Why it's somewhat hard**:
+- Need to **detect which cores are P vs E** (or equivalent)
+- Different architectures have **different core numbering**
+- May need **architecture-specific detection** (cpuid, /proc/cpuinfo)
+- Task policy commands differ (**taskpolicy** vs **taskset** vs **affinity masks**)
+
+**What needs to change**:
+```python
+# Apple Silicon (macOS)
+def get_p_cores():
+    return [4, 5, 6, 7]  # M2 P-cores
+
+def force_to_e_cores(pid):
+    subprocess.run(['sudo', 'taskpolicy', '-c', '0x0F', '-p', str(pid)])
+
+# Intel CPU (Linux)
+def get_p_cores():
+    # Parse /proc/cpuinfo to find performance cores
+    # Intel 12th gen+: cores 0-7 might be P-cores, 8-15 E-cores
+    # This varies by CPU model!
+    return [0, 1, 2, 3, 4, 5, 6, 7]  # Example, must detect
+
+def force_to_e_cores(pid):
+    subprocess.run(['taskset', '-cp', '8-15', str(pid)])  # E-cores
+```
+
+**Re-calibration process**:
+1. Parse CPU info to identify core types
+2. Map core numbers to P/E classification
+3. Adapt task policy commands for target OS
+4. Test core affinity changes
+
+**Difficulty**: ⭐⭐ (Somewhat Hard - requires architecture detection)
+
+---
+
+#### 🟢 **Easy: Mathematical Formulas**
+
+**Why it's easy**:
+- **Pure math** - no hardware dependencies
+- **No re-calibration needed** - formulas are identical
+- Just copy-paste the code
+
+**What needs to change**: **Nothing!**
+
+```python
+# Attribution Ratio (works everywhere)
+def calculate_attribution_ratio(app_power, total_power, baseline):
+    return (app_power - baseline) / (total_power - baseline)
+
+# Skewness Detection (works everywhere)
+def calculate_skewness(power_values):
+    mean = statistics.mean(power_values)
+    median = statistics.median(power_values)
+    return mean - median  # Divergence
+
+# Burst Fraction (works everywhere)
+def calculate_burst_fraction(power_values, threshold):
+    high_power_samples = sum(1 for p in power_values if p > threshold)
+    return high_power_samples / len(power_values)
+```
+
+**Re-calibration process**: None - formulas are universal!
+
+**Difficulty**: ⭐ (Easy - no changes needed)
+
+---
+
+## Summary: Re-Calibration Difficulty
+
+| Formula/Concept | Difficulty | Why |
+|----------------|------------|-----|
+| **Thermal Time Constants** | ⭐⭐⭐⭐⭐ | Requires empirical measurement, hardware testing |
+| **Power Monitoring Tools** | ⭐⭐⭐ | Different tools, different formats, different permissions |
+| **Core Architecture** | ⭐⭐ | Need to detect P/E cores, adapt task policies |
+| **Attribution Ratio** | ⭐ | Pure math, no changes needed |
+| **Skewness Detection** | ⭐ | Pure statistics, no changes needed |
+| **Burst Fraction** | ⭐ | Pure math, no changes needed |
+
+---
+
 ## Conclusion
 
 **~70% of the suite's intelligence is universal**:
@@ -269,4 +440,10 @@ output = session.run(None, {'input': data})
 - Apple Silicon thermal constants
 
 **The suite's core "intelligence" (formulas, analysis, attribution) translates directly to other architectures** - only the **implementation details** (tools, APIs, constants) need to change.
+
+**Re-Calibration Priority**:
+1. **Thermal constants** (hardest - requires hardware testing)
+2. **Power monitoring tools** (moderate - requires tool-specific parsing)
+3. **Core architecture** (somewhat hard - requires detection logic)
+4. **Mathematical formulas** (easy - no changes needed)
 

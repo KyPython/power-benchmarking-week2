@@ -349,7 +349,80 @@ class UserAppAnalyzer:
                 f"Stable baseline ({baseline_power:.0f} mW) enables detection of tiny improvements "
                 f"(sensitivity: {detection_sensitivity:.1f} mW). "
                 f"With unstable baseline, improvements < 150 mW would be 'lost in the noise'."
-            )
+            ),
+            # The Micro-Optimization Proof: Energy Cost per Instruction
+            #
+            # **The Question**: How can we use infinite signal-to-noise ratio to compare
+            # "Energy Cost per Instruction" between coding styles?
+            #
+            # **The Strategy**: Measure power delta per instruction count
+            #
+            # **Formula**: Energy_Cost_per_Instruction = Power_Delta / Instruction_Count
+            #
+            # **Example: For Loop vs Vectorized Operation**
+            #
+            # **For Loop (Python)**:
+            # - Instructions: ~1,000,000 (loop iterations + operations)
+            # - Power: 2000 mW (app) - 500 mW (baseline) = 1500 mW delta
+            # - Energy per instruction: 1500 mW / 1,000,000 = 0.0015 mW/instruction
+            #
+            # **Vectorized Operation (NumPy)**:
+            # - Instructions: ~10,000 (vectorized operations, fewer iterations)
+            # - Power: 1800 mW (app) - 500 mW (baseline) = 1300 mW delta
+            # - Energy per instruction: 1300 mW / 10,000 = 0.13 mW/instruction
+            #
+            # **Wait - This seems backwards!** Vectorized has HIGHER energy per instruction?
+            #
+            # **The Key Insight**: Energy per instruction is misleading. What matters is:
+            # - **Total energy** (power × time)
+            # - **Instructions per task** (how many instructions to complete the work)
+            #
+            # **Better Metric: Energy per Task**
+            #
+            # **For Loop**:
+            # - Time: 1.0 seconds
+            # - Energy: 1500 mW × 1.0s = 1500 mJ
+            # - Task: Process 1,000,000 elements
+            # - Energy per task: 1500 mJ / 1,000,000 = 0.0015 mJ/element
+            #
+            # **Vectorized**:
+            # - Time: 0.1 seconds (10× faster)
+            # - Energy: 1300 mW × 0.1s = 130 mJ
+            # - Task: Process 1,000,000 elements
+            # - Energy per task: 130 mJ / 1,000,000 = 0.00013 mJ/element
+            #
+            # **Result**: Vectorized is 11.5× more energy-efficient (130 mJ vs 1500 mJ)
+            #
+            # **Why Stable Baseline Matters**:
+            # - With unstable baseline: 150 mW noise → Can't detect 200 mW difference (1500 vs 1300)
+            # - With stable baseline: 0 mW noise → Can detect 200 mW difference perfectly
+            # - This enables precise comparison of coding styles
+            #
+            # **Implementation**: This would require instruction counting (perf, Intel VTune)
+            # and precise timing, but the framework is documented here.
+            'micro_optimization_framework': {
+                'energy_per_instruction_note': (
+                    "With stable baseline, can measure Energy Cost per Instruction: "
+                    "Power_Delta / Instruction_Count. "
+                    "Better metric: Energy per Task = (Power_Delta × Time) / Task_Size. "
+                    "Stable baseline enables detection of tiny power differences between coding styles."
+                ),
+                'example_for_loop': {
+                    'instructions': 1000000,
+                    'power_delta_mw': 1500,
+                    'time_s': 1.0,
+                    'energy_mj': 1500,
+                    'energy_per_task_mj': 0.0015
+                },
+                'example_vectorized': {
+                    'instructions': 10000,
+                    'power_delta_mw': 1300,
+                    'time_s': 0.1,
+                    'energy_mj': 130,
+                    'energy_per_task_mj': 0.00013,
+                    'efficiency_improvement': 11.5  # 1500 / 130 = 11.5×
+                }
+            }
         }
     
     def calculate_skewness(self, power_values: List[float]) -> Dict[str, any]:
