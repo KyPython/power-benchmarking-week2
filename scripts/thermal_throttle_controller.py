@@ -571,8 +571,9 @@ class ThermalThrottleController:
                         # First throttle - start gradual
                         self._last_throttle_level = throttle_level
                     
-                    # Calculate throttle level
-                    throttle_level = self.calculate_throttle_level(burst_fraction)
+                    # Calculate throttle level (if not already calculated above)
+                    if throttle_level is None or throttle_level == 1.0:
+                        throttle_level = self.calculate_throttle_level(burst_fraction)
                     
                     # The Thermal Death Spiral: Explain the heartbeat change
                     heartbeat_change = ""
