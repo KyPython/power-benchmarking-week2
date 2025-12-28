@@ -88,11 +88,6 @@ Based on the 57x latency improvement, even if ANE power is similar to CPU power,
 - **Energy Savings**: Lower power × shorter time = significantly more efficient
 - **Combined Effect**: The Neural Engine provides both speed and energy efficiency advantages
 
-4. **Generate Report**:
-   - Latency comparison ✅ (done)
-   - Power comparison (pending)
-   - Energy efficiency (pending)
-
 ---
 
 ## Preliminary Predictions
