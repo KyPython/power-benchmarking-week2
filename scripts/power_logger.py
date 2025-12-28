@@ -215,6 +215,7 @@ def csv_writer(csv_path: Path, data_queue: Queue):
 
 def main():
     """Main function."""
+    global running
     import argparse
     
     parser = argparse.ArgumentParser(
@@ -282,7 +283,6 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        global running
         running = False
         time.sleep(1)  # Give threads time to finish
         print("\n✅ Power logging complete!")
