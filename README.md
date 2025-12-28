@@ -15,13 +15,43 @@ This project demonstrates the performance and energy efficiency advantages of Ap
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Installation
 
 ```bash
-pip install -r requirements.txt
+# Install the package
+pip install -e .
+
+# Or from PyPI (once published)
+pip install power-benchmarking-suite
 ```
 
+**See `QUICK_START_GUIDE.md` for a complete 1-2 hour walkthrough, or `INSTALLATION.md` for detailed installation instructions.**
+
 ### Basic Usage
+
+**New Unified CLI (Recommended):**
+
+```bash
+# Run unified benchmark (30 second test)
+sudo power-benchmark unified --test 30
+
+# Run full benchmark
+sudo power-benchmark unified
+
+# Analyze Safari power consumption
+sudo power-benchmark analyze --app Safari --duration 60
+
+# Visualize power data
+power-benchmark visualize --csv power_log.csv
+
+# Start power logging
+sudo power-benchmark logger --duration 3600 --output power_log.csv
+
+# Check premium status
+power-benchmark --premium-status
+```
+
+**Legacy Scripts (Still Supported):**
 
 1. **Convert PyTorch model to CoreML:**
    ```bash
@@ -37,16 +67,7 @@ pip install -r requirements.txt
    python3 scripts/benchmark_power.py
    ```
 
-3. **Run unified benchmark with power monitoring:**
-   ```bash
-   # Test mode (30 seconds) - recommended for first run
-   sudo python3 scripts/unified_benchmark.py --test 30
-   
-   # Full benchmark (runs until Ctrl+C)
-   sudo python3 scripts/unified_benchmark.py
-   ```
-
-4. **Test all components:**
+3. **Test all components:**
    ```bash
    python3 scripts/test_full_integration.py
    ```
@@ -261,7 +282,30 @@ power-benchmarking-week2/
 - `sudo` access (required for powermetrics)
 - Optional: Arduino for external monitoring
 
+## 💎 Premium Features
+
+### Free Tier
+- ✅ Single device monitoring
+- ✅ Up to 1 hour per session
+- ✅ Basic power monitoring
+- ✅ Standard visualizations
+
+### Premium Tier ($99/month)
+- ✅ Up to 10 devices
+- ✅ Up to 24 hours per session
+- ✅ Advanced analytics
+- ✅ Cloud sync
+- ✅ Team collaboration
+- ✅ API access
+- ✅ Priority support
+
+**Upgrade:** `power-benchmark --upgrade`
+
+**For testing:** `power-benchmark enable-premium-test` (development only)
+
 ## 📝 License
+
+MIT License - See `LICENSE` file for details.
 
 This project is provided as-is for educational and research purposes.
 
