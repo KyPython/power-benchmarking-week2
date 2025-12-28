@@ -5659,6 +5659,192 @@ thermal_constants = {
 
 **Conclusion**: GPU heat dissipation is **significantly more complex** because it involves **dynamic fan control**, **multi-zone thermal coupling**, and **workload-dependent behavior**, requiring **complex models** (piecewise exponentials or differential equations) instead of a **simple constant**.
 
+### The Fan-Speed Pulse: Variable τ_dissipate and Pulsing Strategy
+
+**Question**: In a system with active cooling (variable fan speeds), how does the **"Variable τ_dissipate"** change our pulsing strategy? Does it allow for **longer high-power bursts**, or does it simply **shorten the required cool-down gaps** between them?
+
+**Key Insight**: Variable `τ_dissipate` (which decreases as fan speed increases) creates a **dynamic pulsing strategy**. At **high fan speeds** (fast cooling), we can use **longer bursts with shorter gaps** because heat dissipates quickly. At **low fan speeds** (slow cooling), we need **shorter bursts with longer gaps** to allow heat to dissipate. The pulsing strategy **adapts** to current cooling capacity.
+
+#### The Static Pulsing Strategy (Constant τ_dissipate)
+
+**Apple M2 (Passive Cooling - Constant τ_dissipate)**:
+```python
+# Constant thermal constants
+thermal_constants = {
+    'heat_build_ms': 300,
+    'heat_dissipate_ms': 2000,  # Constant
+    'cooling_threshold': 0.13   # Constant: 300 / (300 + 2000) = 13%
+}
+
+# Static pulsing strategy:
+def static_pulsing_strategy():
+    """
+    Fixed pulsing pattern based on constant cooling threshold.
+    """
+    burst_duration = 0.13 * (300 + 2000)  # 13% of total cycle
+    burst_duration_ms = 299  # ~300ms (heat buildup time)
+    
+    idle_duration = 0.87 * (300 + 2000)  # 87% of total cycle
+    idle_duration_ms = 2001  # ~2000ms (heat dissipation time)
+    
+    return {
+        'burst_duration_ms': burst_duration_ms,
+        'idle_duration_ms': idle_duration_ms,
+        'duty_cycle': 0.13  # 13% active, 87% idle
+    }
+
+# Pattern:
+# [===BURST===][====================IDLE====================]
+# 300ms high   2000ms low (cool-down)
+# Power: 3000 mW           Power: 800 mW
+```
+
+#### The Dynamic Pulsing Strategy (Variable τ_dissipate)
+
+**NVIDIA GPU (Active Cooling - Variable τ_dissipate)**:
+```python
+def dynamic_pulsing_strategy(temperature, thermal_constants):
+    """
+    Dynamic pulsing pattern that adapts to current cooling capacity (fan speed).
+    """
+    # Step 1: Calculate current fan speed based on temperature
+    fan_speed = calculate_fan_speed(temperature, thermal_constants['fan_curve'])
+    
+    # Step 2: Calculate variable tau_dissipate based on fan speed
+    tau_dissipate = calculate_tau_dissipate(fan_speed, thermal_constants)
+    
+    # Step 3: Calculate dynamic cooling threshold
+    tau_build = thermal_constants['heat_build_ms']
+    cooling_threshold = tau_build / (tau_build + tau_dissipate)
+    
+    # Step 4: Calculate burst and idle durations
+    total_cycle_ms = tau_build + tau_dissipate
+    burst_duration_ms = cooling_threshold * total_cycle_ms
+    idle_duration_ms = (1 - cooling_threshold) * total_cycle_ms
+    
+    return {
+        'burst_duration_ms': burst_duration_ms,
+        'idle_duration_ms': idle_duration_ms,
+        'duty_cycle': cooling_threshold,
+        'fan_speed': fan_speed,
+        'tau_dissipate_ms': tau_dissipate,
+        'temperature': temperature
+    }
+```
+
+#### Real-World Example: Pulsing Strategy Adaptation
+
+**Scenario 1: Low Temperature (40°C - Fans at 30%)**:
+```python
+temperature = 40  # °C
+fan_speed = 30  # % (low speed, quiet)
+
+tau_dissipate = 3000 * (1 - 0.05 * 3) = 2550 ms  # Slow cooling
+cooling_threshold = 500 / (500 + 2550) = 0.164  # 16.4%
+
+result = dynamic_pulsing_strategy(40, thermal_constants)
+# Result:
+#   burst_duration_ms: 500 ms (16.4% of 3050ms cycle)
+#   idle_duration_ms: 2550 ms (83.6% of cycle)
+#   duty_cycle: 0.164 (16.4% active, 83.6% idle)
+
+# Pattern:
+# [===BURST===][========================IDLE========================]
+# 500ms high   2550ms low (slow cool-down, fans at 30%)
+# Power: 250W           Power: 20W
+```
+
+**Scenario 2: High Temperature (75°C - Fans at 100%)**:
+```python
+temperature = 75  # °C
+fan_speed = 100  # % (max speed, loud)
+
+tau_dissipate = 3000 * (1 - 0.05 * 10) = 1500 ms  # Fast cooling
+cooling_threshold = 500 / (500 + 1500) = 0.25  # 25%
+
+result = dynamic_pulsing_strategy(75, thermal_constants)
+# Result:
+#   burst_duration_ms: 500 ms (25% of 2000ms cycle) - SAME burst duration!
+#   idle_duration_ms: 1500 ms (75% of cycle) - SHORTER idle!
+#   duty_cycle: 0.25 (25% active, 75% idle)
+
+# Pattern:
+# [===BURST===][===========IDLE===========]
+# 500ms high   1500ms low (fast cool-down, fans at 100%)
+# Power: 250W        Power: 20W
+```
+
+#### Key Insight: Shorter Gaps, Not Longer Bursts
+
+**Answer**: Variable `τ_dissipate` **shortens the required cool-down gaps** between bursts, rather than allowing longer bursts. The **burst duration stays the same** (determined by `τ_build`, which is constant), but the **idle duration decreases** as cooling becomes more efficient (faster `τ_dissipate`).
+
+**Why Burst Duration Stays Constant**:
+- **Heat buildup time (`τ_build`)** is a **physical property** of the silicon (how fast heat accumulates)
+- This is **independent of cooling** - heat builds up at the same rate regardless of fan speed
+- Burst duration is limited by heat buildup, not cooling capacity
+
+**Why Idle Duration Decreases**:
+- **Heat dissipation time (`τ_dissipate`)** depends on **cooling efficiency** (fan speed)
+- Higher fan speed → Faster cooling → Shorter `τ_dissipate` → Shorter idle duration
+- Idle duration = `(1 - cooling_threshold) × (τ_build + τ_dissipate)`
+- As `τ_dissipate` decreases, idle duration decreases (but burst duration stays constant)
+
+#### The Pulsing Strategy Benefits
+
+**Dynamic Adaptation**:
+
+1. **Higher Throughput at High Temperature**:
+   - Low temp (40°C): Duty cycle = 16.4% (500ms burst / 3050ms cycle)
+   - High temp (75°C): Duty cycle = 25% (500ms burst / 2000ms cycle)
+   - **Result**: Higher temperature allows **higher throughput** (more bursts per second) because cooling is faster
+
+2. **Maintains Thermal Safety**:
+   - Burst duration is **constant** (limited by heat buildup physics)
+   - Idle duration **adapts** to cooling capacity
+   - **Result**: System stays within thermal limits while maximizing throughput
+
+3. **Fan Speed Awareness**:
+   - Strategy **adapts in real-time** as fan speed changes
+   - Low fan speed → Longer gaps (conservative)
+   - High fan speed → Shorter gaps (aggressive, higher throughput)
+
+**Complete Pulsing Controller**:
+```python
+def adaptive_pulsing_controller(temperature, thermal_constants, target_power):
+    """
+    Adaptive pulsing controller that adjusts strategy based on cooling capacity.
+    """
+    # Calculate dynamic pulsing parameters
+    pulsing = dynamic_pulsing_strategy(temperature, thermal_constants)
+    
+    # Execute pulsing pattern
+    while running:
+        # Burst phase (high power)
+        set_power(target_power)
+        time.sleep(pulsing['burst_duration_ms'] / 1000.0)
+        
+        # Idle phase (low power, cool-down)
+        set_power(target_power * 0.1)  # 10% power during idle
+        time.sleep(pulsing['idle_duration_ms'] / 1000.0)
+        
+        # Recalculate (temperature may have changed, affecting fan speed)
+        temperature = get_current_temperature()
+        pulsing = dynamic_pulsing_strategy(temperature, thermal_constants)
+    
+    return pulsing_stats
+
+# Example Execution:
+# T=0s:  40°C, fans 30%, burst 500ms, idle 2550ms (duty cycle 16.4%)
+# T=3s:  50°C, fans 50%, burst 500ms, idle 2250ms (duty cycle 18.2%)
+# T=6s:  65°C, fans 80%, burst 500ms, idle 1750ms (duty cycle 22.2%)
+# T=9s:  75°C, fans 100%, burst 500ms, idle 1500ms (duty cycle 25.0%)
+# 
+# Throughput increases as temperature rises (faster cooling → shorter gaps)
+# But burst duration stays constant (limited by heat buildup physics)
+```
+
+**Conclusion**: Variable `τ_dissipate` enables a **dynamic pulsing strategy** that **adapts to cooling capacity**. The strategy **shortens cool-down gaps** (not lengthens bursts) as fan speed increases, allowing **higher throughput** at higher temperatures while maintaining thermal safety. The burst duration remains constant because it's limited by heat buildup physics, not cooling capacity.
+
 ### The Dynamic Thermal Model: Fan-Speed-Aware Cooling Threshold
 
 **Question**: Since an NVIDIA GPU's cooling is piecewise or differential due to variable fan speeds, how would we adapt our Cooling Threshold formula to be **"Fan-Speed Aware"**?
