@@ -453,15 +453,65 @@ class ThermalThrottleController:
                     # - Perceived performance: User must not see stutter
                     # - Solution: Gradual, intelligent throttling that prioritizes user-facing work
                     
+                    # The Perceived Smoothness Test: Finding the "Threshold of Annoyance"
+                    #
+                    # **The Question**: How do we use gradual throttling (5% steps) to find
+                    # the point where users finally notice the system is slowing down?
+                    #
+                    # **The Strategy**:
+                    # 1. **Gradual Step Logic**: Throttle in 5% increments (100% → 95% → 90% → ...)
+                    # 2. **User Feedback Detection**: Monitor for signs of user annoyance
+                    #    - App switching (user trying to escape lag)
+                    #    - Mouse/keyboard activity spikes (user frustrated, clicking more)
+                    #    - Window focus changes (user switching to different app)
+                    # 3. **Threshold Detection**: When user behavior changes → "Threshold of Annoyance" reached
+                    #
+                    # **The Threshold of Annoyance**:
+                    # - **Below threshold**: User doesn't notice (smooth degradation)
+                    # - **At threshold**: User starts to notice (first signs of annoyance)
+                    # - **Above threshold**: User clearly notices (obvious lag)
+                    #
+                    # **Example (Hot Room - 35°C)**:
+                    # - Start: 100% CPU (no throttle)
+                    # - Step 1: 95% CPU → User: No notice (smooth)
+                    # - Step 2: 90% CPU → User: No notice (smooth)
+                    # - Step 3: 85% CPU → User: Slight notice (minor lag)
+                    # - Step 4: 80% CPU → User: Clear notice (annoyance begins) ← THRESHOLD
+                    # - Step 5: 75% CPU → User: Obvious lag (annoyance confirmed)
+                    #
+                    # **Implementation**: Track throttle level and detect user behavior changes
+                    # (This is a framework - actual user feedback would require monitoring system events)
+                    
                     # Implement gradual throttling (don't drop instantly)
                     if self.throttled_pids:
                         # Already throttled - check if we need to throttle more
-                        current_throttle = 0.65  # Assume current throttle level
+                        # Get current throttle level from previous measurement
+                        current_throttle = getattr(self, '_last_throttle_level', 1.0)
                         new_throttle = throttle_level
                         if new_throttle < current_throttle:
-                            # Need to throttle more - do it gradually
+                            # Need to throttle more - do it gradually (5% reduction per step)
                             throttle_level = max(new_throttle, current_throttle * 0.95)  # 5% reduction per step
-                            print(f"     (Gradual throttling: {current_throttle*100:.0f}% → {throttle_level*100:.0f}% to avoid stutter)")
+                            
+                            # Track throttle level for threshold detection
+                            self._last_throttle_level = throttle_level
+                            
+                            # Calculate how many steps we've taken
+                            steps_taken = int((1.0 - throttle_level) / 0.05)
+                            
+                            # Estimate "Threshold of Annoyance" (typically around 15-20% reduction)
+                            # This is empirical - users typically notice around 80-85% CPU
+                            annoyance_threshold = 0.80  # 80% CPU = 20% reduction
+                            if throttle_level <= annoyance_threshold:
+                                print(f"     ⚠️  Approaching 'Threshold of Annoyance' ({throttle_level*100:.0f}% CPU)")
+                                print(f"     → User may start to notice performance degradation")
+                            
+                            print(f"     (Gradual throttling: {current_throttle*100:.0f}% → {throttle_level*100:.0f}% "
+                                  f"({steps_taken} steps) to avoid stutter)")
+                        else:
+                            self._last_throttle_level = throttle_level
+                    else:
+                        # First throttle - start gradual
+                        self._last_throttle_level = throttle_level
                     
                     # Calculate throttle level
                     throttle_level = self.calculate_throttle_level(burst_fraction)
