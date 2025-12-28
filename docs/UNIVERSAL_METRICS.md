@@ -447,3 +447,138 @@ def calculate_burst_fraction(power_values, threshold):
 3. **Core architecture** (somewhat hard - requires detection logic)
 4. **Mathematical formulas** (easy - no changes needed)
 
+---
+
+## The Porting Blueprint: First 3 Constants for Engineers
+
+**Question**: If you were to hand this doc to an engineer working on Intel's Lunar Lake or AMD's Ryzen AI, how does the structure help them identify the first 3 constants they need to redefine?
+
+**Answer**: The document provides a clear **priority-based checklist** that guides engineers through the porting process step-by-step, starting with the most critical constants.
+
+### The First 3 Constants (Priority Order)
+
+#### 1. **Thermal Time Constants** (🔴 Highest Priority)
+
+**Why First?**
+- **Critical for Safety**: Incorrect thermal constants can cause system damage (overheating, throttling failures)
+- **Affects All Features**: Thermal throttling controllers depend on accurate constants
+- **Hardest to Get Right**: Requires empirical measurement, can't be calculated from specs
+
+**Where to Find in Doc**: "The Cross-Platform Blueprint: Re-Calibration Difficulty" → "Most Difficult: Thermal Time Constants"
+
+**What They Need**:
+```python
+# Step 1: Measure heat buildup time (τ_build)
+# Run stress test, capture power rise curve
+thermal_constants = {
+    'heat_build_ms': 300,      # ← First constant (measure from power rise)
+    'heat_dissipate_ms': 2000,  # ← Second constant (measure from power decay)
+}
+
+# Step 2: Calculate cooling threshold (derived)
+cooling_threshold = heat_build / (heat_build + heat_dissipate)  # ← Third constant
+```
+
+**Re-Calibration Process** (from doc):
+1. Run thermal stress test (100% load for 5 minutes)
+2. Measure power over time (capture heat buildup curve)
+3. Stop stress, measure power decay (capture heat dissipation curve)
+4. Fit exponential curves to extract time constants
+5. Calculate cooling threshold: `f_cool = τ_build / (τ_build + τ_dissipate)`
+
+**Example for Intel Lunar Lake**:
+- Engineer measures: `heat_build_ms = 200`, `heat_dissipate_ms = 1500`
+- Calculates: `cooling_threshold = 200 / (200 + 1500) = 0.118` (11.8%)
+- Updates: `thermal_throttle_controller.py` with Lunar Lake constants
+
+#### 2. **Power Monitoring Tool Constants** (🟠 Second Priority)
+
+**Why Second?**
+- **Required for All Measurements**: Can't measure anything without power monitoring
+- **Affects Accuracy**: Wrong units or parsing = wrong measurements
+- **Moderate Complexity**: Different syntax, but straightforward to adapt
+
+**Where to Find in Doc**: "Moderately Difficult: Power Monitoring Tool Integration"
+
+**What They Need**:
+```python
+# Step 1: Identify tool (Intel: perf, AMD: rocm-smi, NVIDIA: nvidia-smi)
+# Step 2: Parse output format (different syntax)
+# Step 3: Handle unit conversions (W vs mW, J vs mJ)
+
+# Intel Lunar Lake example:
+def parse_perf_cpu(line):
+    match = re.search(r'power:energy-pkg:([\d.]+)', line)  # ← Parse syntax
+    return float(match.group(1)) * 1000  # ← Unit conversion (J to mW)
+```
+
+**Re-Calibration Process** (from doc):
+1. Identify available power monitoring tools
+2. Test each tool's output format
+3. Write parser for each tool
+4. Handle unit conversions (W vs mW, J vs mJ)
+5. Integrate multiple tools if needed
+
+**Example for Intel Lunar Lake**:
+- Tool: `perf` (Linux power monitoring)
+- Output format: `power:energy-pkg:0.123` (Joules)
+- Conversion: `0.123 J * 1000 = 123 mW`
+- Updates: `power_logger.py` with Intel parser
+
+#### 3. **Core Architecture Constants** (🟡 Third Priority)
+
+**Why Third?**
+- **Required for Optimization**: P-core/E-core distinction enables power optimization
+- **Affects Efficiency Features**: Task policy commands depend on core mapping
+- **Somewhat Hard**: Need to detect core types, but once done, straightforward
+
+**Where to Find in Doc**: "Somewhat Difficult: Core Architecture Detection"
+
+**What They Need**:
+```python
+# Step 1: Detect core types (P-cores vs E-cores)
+# Step 2: Map core numbers to types
+# Step 3: Adapt task policy commands
+
+# Intel Lunar Lake example:
+def get_p_cores():
+    # Parse /proc/cpuinfo to find performance cores
+    # Lunar Lake: cores 0-7 = P-cores, 8-15 = E-cores
+    return [0, 1, 2, 3, 4, 5, 6, 7]  # ← Core mapping
+
+def force_to_e_cores(pid):
+    subprocess.run(['taskset', '-cp', '8-15', str(pid)])  # ← Task policy command
+```
+
+**Re-Calibration Process** (from doc):
+1. Parse CPU info to identify core types
+2. Map core numbers to P/E classification
+3. Adapt task policy commands for target OS
+4. Test core affinity changes
+
+**Example for Intel Lunar Lake**:
+- P-cores: 0-7 (8 cores)
+- E-cores: 8-15 (8 cores)
+- Task policy: `taskset -cp 8-15 <pid>` (Linux)
+- Updates: `automated_feedback_loop.py` with Intel core mapping
+
+### How the Document Structure Helps
+
+**Clear Priority Ordering**:
+1. **Difficulty Ranking**: Helps engineers prioritize (start with hardest first)
+2. **Explicit Constants**: Each section shows exactly what needs to be redefined
+3. **Re-Calibration Process**: Step-by-step instructions for each constant
+4. **Code Examples**: Shows before/after code for each platform
+
+**Result**: Engineers can:
+1. **Read "Re-Calibration Difficulty"** → Understand priority
+2. **Find "First 3 Constants"** → Identify what to change
+3. **Follow "Re-Calibration Process"** → Get step-by-step instructions
+4. **Use Code Examples** → See concrete implementation
+
+**Time Estimate for Engineer**:
+- Constant 1 (Thermal): 2-4 hours (requires stress testing)
+- Constant 2 (Power Monitoring): 1-2 hours (parsing + testing)
+- Constant 3 (Core Architecture): 1 hour (detection + mapping)
+- **Total**: 4-7 hours to port the first 3 critical constants
+
