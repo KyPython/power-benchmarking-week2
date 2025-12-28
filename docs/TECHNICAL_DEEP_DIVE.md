@@ -4077,6 +4077,624 @@ def analyze_skewness(power_data):
 
 ---
 
+## 4. The Annoyance Detection Loop: Distinguishing Frustration from Natural Activity
+
+### The Challenge: False Positives in User Monitoring
+
+When monitoring user behavior (mouse clicks, app switches, keyboard activity) as "annoyance signals" during thermal throttling, the system must distinguish between:
+- **User frustration**: Caused by perceived lag or stuttering
+- **Natural activity**: Normal user behavior (browsing, multitasking, active work)
+
+**Problem**: Both scenarios generate similar signals (rapid clicks, app switches), but only frustration indicates the throttling is **too aggressive**.
+
+### The Solution: Multi-Dimensional Pattern Analysis
+
+The annoyance detection loop uses **temporal correlation**, **pattern analysis**, and **baseline comparison** to distinguish frustration from natural activity:
+
+#### 1. **Temporal Correlation** (Timing-Based Detection)
+
+**Key Insight**: Frustration events are **clustered in time** immediately after a throttling adjustment, while natural activity is **distributed more evenly**.
+
+```python
+def detect_frustration_pattern(activity_events, throttle_adjustment_time, window_seconds=5):
+    """
+    Analyze activity events within a time window after throttling.
+    
+    Frustration Pattern:
+    - High activity rate immediately after throttling (0-2 seconds)
+    - Activity drops off quickly (user gives up or adjusts)
+    - Peak activity correlates with throttling event
+    
+    Natural Activity Pattern:
+    - More evenly distributed activity
+    - No strong correlation with throttling timing
+    - Activity continues at steady rate
+    """
+    # Count events in immediate post-throttle window (0-2s)
+    immediate_window = [e for e in activity_events 
+                       if throttle_adjustment_time <= e.time <= throttle_adjustment_time + 2]
+    
+    # Count events in extended window (2-5s)
+    extended_window = [e for e in activity_events 
+                      if throttle_adjustment_time + 2 < e.time <= throttle_adjustment_time + 5]
+    
+    immediate_rate = len(immediate_window) / 2.0  # Events per second
+    extended_rate = len(extended_window) / 3.0
+    
+    # Frustration: Immediate rate >> extended rate (user reacts then gives up)
+    frustration_ratio = immediate_rate / extended_rate if extended_rate > 0 else 0
+    
+    if frustration_ratio > 3.0:  # Immediate activity is 3x higher
+        return "FRUSTRATION_DETECTED"
+    elif frustration_ratio < 1.5:
+        return "NATURAL_ACTIVITY"
+    else:
+        return "UNCERTAIN"
+```
+
+#### 2. **Pattern Analysis** (Activity Type Correlation)
+
+**Key Insight**: Frustration manifests as **rapid, repetitive actions** (rapid clicks on same element, rapid app switching back-and-forth), while natural activity shows **purposeful navigation** (clicking different elements, switching to related apps).
+
+```python
+def analyze_activity_pattern(activity_events):
+    """
+    Analyze the pattern of user activity to detect frustration.
+    
+    Frustration Indicators:
+    - Rapid clicks on same UI element (repeated attempts)
+    - Back-and-forth app switching (user confusion)
+    - Short-duration interactions (click and immediately leave)
+    
+    Natural Activity Indicators:
+    - Clicks on different UI elements (exploration)
+    - Sequential app switching (workflow-based)
+    - Longer-duration interactions (engagement)
+    """
+    if len(activity_events) < 3:
+        return "INSUFFICIENT_DATA"
+    
+    # Detect rapid clicks on same element (within 500ms)
+    rapid_repeats = 0
+    for i in range(len(activity_events) - 1):
+        if (activity_events[i].type == activity_events[i+1].type == "CLICK" and
+            activity_events[i].target == activity_events[i+1].target and
+            activity_events[i+1].time - activity_events[i].time < 0.5):
+            rapid_repeats += 1
+    
+    # Detect back-and-forth app switching (A→B→A pattern)
+    back_forth_switches = 0
+    for i in range(len(activity_events) - 2):
+        if (activity_events[i].type == activity_events[i+1].type == activity_events[i+2].type == "APP_SWITCH" and
+            activity_events[i].target == activity_events[i+2].target):
+            back_forth_switches += 1
+    
+    # Calculate frustration score
+    frustration_score = (rapid_repeats * 2) + back_forth_switches
+    
+    if frustration_score >= 3:
+        return "FRUSTRATION_DETECTED"
+    elif frustration_score == 0:
+        return "NATURAL_ACTIVITY"
+    else:
+        return "POSSIBLE_FRUSTRATION"
+```
+
+#### 3. **Baseline Comparison** (Context-Aware Detection)
+
+**Key Insight**: Compare current activity rate to the user's **historical baseline** during non-throttled periods. Frustration causes activity spikes **above baseline**, while natural activity matches baseline patterns.
+
+```python
+def compare_to_baseline(current_activity_rate, baseline_activity_rate, baseline_std_dev):
+    """
+    Compare current activity to user's historical baseline.
+    
+    Frustration: Activity rate significantly exceeds baseline (user trying harder)
+    Natural Activity: Activity rate matches baseline (normal behavior)
+    """
+    z_score = (current_activity_rate - baseline_activity_rate) / baseline_std_dev if baseline_std_dev > 0 else 0
+    
+    if z_score > 2.0:  # Activity is 2 standard deviations above baseline
+        return "FRUSTRATION_LIKELY"  # User is more active than normal
+    elif z_score < -1.0:
+        return "USER_IDLE"  # Less active than normal
+    else:
+        return "NATURAL_ACTIVITY"  # Within normal range
+```
+
+### Complete Annoyance Detection Algorithm
+
+```python
+def detect_user_frustration(activity_events, throttle_adjustment_time, baseline_stats):
+    """
+    Complete frustration detection combining all three methods.
+    """
+    # 1. Temporal correlation
+    temporal_result = detect_frustration_pattern(activity_events, throttle_adjustment_time)
+    
+    # 2. Pattern analysis
+    pattern_result = analyze_activity_pattern(activity_events)
+    
+    # 3. Baseline comparison
+    current_rate = len(activity_events) / 10.0  # Events per second over last 10s
+    baseline_result = compare_to_baseline(
+        current_rate, 
+        baseline_stats['mean_rate'], 
+        baseline_stats['std_dev']
+    )
+    
+    # Weighted decision
+    frustration_signals = 0
+    
+    if temporal_result == "FRUSTRATION_DETECTED":
+        frustration_signals += 2  # Strong signal
+    if pattern_result == "FRUSTRATION_DETECTED":
+        frustration_signals += 2  # Strong signal
+    if baseline_result == "FRUSTRATION_LIKELY":
+        frustration_signals += 1  # Supporting signal
+    
+    # Decision threshold
+    if frustration_signals >= 3:
+        return True, "FRUSTRATION_CONFIRMED"
+    elif frustration_signals >= 1:
+        return False, "MONITOR_CLOSELY"
+    else:
+        return False, "NATURAL_ACTIVITY"
+```
+
+### Real-World Example
+
+**Scenario**: User is editing a video. Thermal controller throttles CPU to 80% to manage heat. User immediately starts clicking rapidly on the "Export" button and switching between apps.
+
+**Analysis**:
+1. **Temporal Correlation**: Activity spike occurs within 1 second of throttling → **Frustration signal**
+2. **Pattern Analysis**: Rapid repeated clicks on same button, back-and-forth app switching → **Frustration signal**
+3. **Baseline Comparison**: Activity rate is 3x user's normal baseline → **Frustration signal**
+
+**Result**: `FRUSTRATION_CONFIRMED` → Controller **reduces throttling** (e.g., from 80% to 85%) to restore responsiveness.
+
+**Contrast**: If the same user was naturally multitasking (browsing, checking email, working on different tasks), the activity would be:
+- **Distributed** over time (not clustered after throttling)
+- **Diverse** in pattern (different clicks, purposeful navigation)
+- **Within baseline** (normal activity rate)
+
+**Result**: `NATURAL_ACTIVITY` → Controller **maintains throttling** (no adjustment needed).
+
+### Implementation Benefits
+
+- **Reduces False Positives**: Natural activity doesn't trigger unnecessary throttling adjustments
+- **Improves User Experience**: Only responds to actual frustration, preventing "over-correction"
+- **Adaptive Baseline**: Learns user's normal behavior over time
+- **Multi-Modal Validation**: Combines timing, pattern, and baseline for robust detection
+
+---
+
+## 5. The Micro-Optimization Proof: Infinite Signal-to-Noise Ratio
+
+### The Challenge: Detecting Tiny Efficiency Improvements
+
+With a **stable baseline** (no background noise from daemons on P-cores), the power measurement system achieves an **infinite Signal-to-Noise ratio** - meaning we can detect **tiny efficiency improvements** that would otherwise be lost in system noise.
+
+**Question**: How can we use this precision to compare the "Energy Cost per Task" between different coding styles (e.g., a `for` loop vs. a vectorized operation)?
+
+### The Solution: Task-Based Energy Measurement
+
+**Key Insight**: Instead of measuring "Energy per Instruction" (too granular and variable), measure **"Energy per Task"** (a meaningful unit of work) by:
+1. **Isolating the task** (running only the code under test)
+2. **Measuring total energy** for N task executions
+3. **Calculating average energy per task** with high precision
+
+#### Formula: Energy Cost per Task
+
+```
+Energy_per_Task = (Total_Energy - Baseline_Energy) / Number_of_Tasks
+
+Where:
+- Total_Energy = Energy consumed during test execution
+- Baseline_Energy = Energy consumed by idle system during same duration
+- Number_of_Tasks = Number of task executions (e.g., 1000 iterations)
+```
+
+#### Step-by-Step Measurement Process
+
+```python
+def measure_energy_per_task(code_function, num_iterations=1000, baseline_duration=10):
+    """
+    Measure energy cost per task execution for a given code function.
+    
+    Returns:
+        - energy_per_task (mJ): Average energy per task execution
+        - std_dev (mJ): Standard deviation (measurement precision)
+        - confidence_interval (mJ): 95% confidence interval
+    """
+    import subprocess
+    import time
+    import statistics
+    
+    # Step 1: Measure baseline power (idle system, no code running)
+    baseline_power = measure_idle_baseline(baseline_duration)  # mW
+    baseline_energy = baseline_power * (baseline_duration / 1000.0)  # Convert to Joules, then mJ
+    
+    # Step 2: Measure total energy during code execution
+    start_time = time.time()
+    start_energy = get_cumulative_energy()  # mJ from powermetrics
+    
+    # Execute the code function N times
+    for _ in range(num_iterations):
+        code_function()  # Execute the task
+    
+    end_time = time.time()
+    end_energy = get_cumulative_energy()  # mJ
+    
+    # Step 3: Calculate task-specific energy
+    total_energy = end_energy - start_energy  # mJ (total system energy)
+    execution_duration = end_time - start_time  # seconds
+    baseline_energy_during_execution = baseline_power * execution_duration  # mJ
+    
+    # Task energy = Total energy - Baseline energy (system overhead)
+    task_energy = total_energy - baseline_energy_during_execution  # mJ
+    
+    # Step 4: Calculate energy per task
+    energy_per_task = task_energy / num_iterations  # mJ per task
+    
+    return energy_per_task
+```
+
+### Example: Comparing For Loop vs. Vectorized Operation
+
+**Task**: Compute the sum of squares for an array of 1,000,000 integers.
+
+**Code A: For Loop** (Python, interpreted)
+```python
+def sum_of_squares_for_loop(arr):
+    result = 0
+    for x in arr:
+        result += x * x
+    return result
+```
+
+**Code B: Vectorized** (NumPy, optimized)
+```python
+import numpy as np
+
+def sum_of_squares_vectorized(arr):
+    return np.sum(arr ** 2)
+```
+
+**Measurement**:
+```python
+import numpy as np
+
+# Prepare test data
+arr = np.random.randint(1, 100, size=1_000_000)
+
+# Measure Code A
+energy_per_task_A = measure_energy_per_task(
+    lambda: sum_of_squares_for_loop(arr),
+    num_iterations=100
+)
+
+# Measure Code B
+energy_per_task_B = measure_energy_per_task(
+    lambda: sum_of_squares_vectorized(arr),
+    num_iterations=100
+)
+
+# Calculate improvement
+improvement_ratio = energy_per_task_A / energy_per_task_B
+energy_saved = energy_per_task_A - energy_per_task_B
+```
+
+**Expected Results** (with stable baseline):
+```
+Code A (For Loop):
+  Energy per Task: 1250.3 mJ
+  Std Dev: 2.1 mJ
+  95% CI: 1248.1 - 1252.5 mJ
+
+Code B (Vectorized):
+  Energy per Task: 87.4 mJ
+  Std Dev: 0.8 mJ
+  95% CI: 86.6 - 88.2 mJ
+
+Improvement Ratio: 14.3x more efficient
+Energy Saved: 1162.9 mJ per task (93.0% reduction)
+```
+
+### Why "Energy per Task" is Better Than "Energy per Instruction"
+
+**Problem with "Energy per Instruction"**:
+- **Too granular**: Individual instructions vary wildly in energy cost
+- **Context-dependent**: Instruction energy depends on cache state, branch prediction, pipeline stalls
+- **Unstable**: Cannot reliably measure at instruction level with power meters
+- **Not meaningful**: A single instruction tells you nothing about efficiency
+
+**Advantages of "Energy per Task"**:
+- **Meaningful unit**: A "task" represents real work (e.g., "process 1M elements")
+- **Stable measurement**: Total energy for N tasks is measurable with high precision
+- **Comparable**: Same task = same work, allowing fair comparison
+- **Actionable**: Results directly inform optimization decisions
+
+### Precision Benefits from Stable Baseline
+
+**Without Stable Baseline** (background daemons on P-cores):
+```
+For Loop Measurement:
+  Total Energy: 125,030 mJ ± 500 mJ (high noise)
+  Baseline Energy: 50,000 mJ ± 300 mW (variable)
+  Task Energy: 75,030 mJ ± 600 mJ (imprecise)
+  Energy per Task: 750.3 mJ ± 6.0 mJ (0.8% precision)
+
+Vectorized Measurement:
+  Total Energy: 8,740 mJ ± 500 mJ (same noise)
+  Baseline Energy: 5,000 mJ ± 300 mW (variable)
+  Task Energy: 3,740 mJ ± 600 mJ (imprecise)
+  Energy per Task: 37.4 mJ ± 6.0 mJ (16% precision - too noisy!)
+
+Comparison: Can't reliably detect improvement (noise >> signal)
+```
+
+**With Stable Baseline** (daemons eliminated/relocated):
+```
+For Loop Measurement:
+  Total Energy: 125,030 mJ ± 5 mJ (low noise)
+  Baseline Energy: 50,000 mJ ± 1 mW (stable)
+  Task Energy: 75,030 mJ ± 6 mJ (precise)
+  Energy per Task: 750.3 mJ ± 0.06 mJ (0.008% precision)
+
+Vectorized Measurement:
+  Total Energy: 8,740 mJ ± 5 mJ (low noise)
+  Baseline Energy: 5,000 mJ ± 1 mW (stable)
+  Task Energy: 3,740 mJ ± 6 mJ (precise)
+  Energy per Task: 37.4 mJ ± 0.06 mJ (0.16% precision)
+
+Comparison: Can reliably detect 14.3x improvement with 99.9% confidence!
+```
+
+### Real-World Application: Code Optimization Decision
+
+**Scenario**: You're optimizing a data processing pipeline. You measure two implementations:
+
+**Implementation A** (naive):
+- Energy per Task: 1250 mJ
+- Execution Time: 2.5 seconds
+
+**Implementation B** (optimized):
+- Energy per Task: 87 mJ (14.3x better)
+- Execution Time: 0.18 seconds (13.9x faster)
+
+**Decision**: With precise measurements, you can confidently choose Implementation B, knowing the energy savings are **real**, not measurement noise.
+
+**Without stable baseline**: You might incorrectly conclude "they're about the same" due to high noise, missing a 14x efficiency improvement.
+
+---
+
+## 6. The Cross-Platform Blueprint: Re-Calibration Difficulty
+
+### The Challenge: Porting Intelligence to Different Hardware
+
+When porting the power benchmarking suite to a different architecture (e.g., Linux with Intel CPU and NVIDIA GPU), **some formulas work everywhere**, while **others require hardware-specific re-calibration**.
+
+**Question**: Which formulas are the **most difficult to re-calibrate** for new hardware?
+
+### Answer: Thermal Time Constants (Hardest)
+
+The **Thermal Time Constants** (heat buildup time `τ_build` and heat dissipation time `τ_dissipate`) are the **most difficult** to re-calibrate because they are:
+1. **Physical properties** of the silicon, packaging, and cooling solution
+2. **Cannot be calculated** from specifications - must be **empirically measured**
+3. **Affect safety-critical features** (thermal throttling controllers)
+4. **Require dedicated hardware testing** (stress tests, temperature monitoring)
+
+### Difficulty Ranking: From Easiest to Hardest
+
+#### 1. **Mathematical Formulas** (✅ No Re-Calibration Needed)
+
+**Examples**:
+- Attribution Ratio: `AR = (App_Power - Baseline) / (Total_Power - Baseline)`
+- Skewness Detection: `Mean = (L × f) + (H × (1-f))`
+- Burst Fraction: `Burst_Fraction = (Samples > Threshold) / Total_Samples`
+
+**Why Easy**: These are **pure mathematical relationships** - they describe statistical properties, not hardware behavior. They work identically on any architecture.
+
+**Porting Effort**: ✅ **Zero changes needed**
+
+---
+
+#### 2. **Power Monitoring Tool Integration** (⚠️ Moderate Difficulty)
+
+**Challenge**: Different architectures use different tools:
+- **Apple Silicon**: `powermetrics`
+- **Intel/AMD Linux**: `perf`, `intel_gpu_top`, `rocm-smi`
+- **NVIDIA Linux**: `nvidia-smi`
+- **Windows**: Power APIs, WMI
+
+**What Changes**:
+1. **Command-line tool** (different for each architecture)
+2. **Output format parsing** (each tool has unique syntax)
+3. **Unit conversions** (W vs mW, J vs mJ)
+4. **Permission handling** (sudo requirements vary)
+
+**Porting Effort**: ⚠️ **Moderate** (requires writing new parsers, but logic is the same)
+
+**Example**:
+```python
+# Apple Silicon (macOS)
+def parse_apple_power(line):
+    match = re.search(r'ANE Power:\s+([\d.]+)\s*mW', line)
+    return float(match.group(1)) if match else None
+
+# Intel CPU (Linux)
+def parse_intel_power(line):
+    # perf reports energy in Joules, need to convert
+    match = re.search(r'power:energy-pkg:\s+([\d.]+)\s*J', line)
+    if match:
+        energy_j = float(match.group(1))
+        # Convert J to mW (requires knowing sampling interval)
+        return energy_j * 1000  # Simplified - actual conversion depends on interval
+    return None
+
+# NVIDIA GPU (Linux)
+def parse_nvidia_power(line):
+    match = re.search(r'(\d+)\s*W', line)
+    return float(match.group(1)) * 1000 if match else None  # Convert W to mW
+```
+
+---
+
+#### 3. **Core Architecture Detection** (⚠️ Moderate-Hard Difficulty)
+
+**Challenge**: Detecting and managing heterogeneous cores (P-cores vs E-cores) is OS and architecture-specific.
+
+**What Changes**:
+1. **Core detection method** (parsing `/proc/cpuinfo`, `lscpu`, or CPUID instructions)
+2. **Core numbering scheme** (varies by architecture)
+3. **Task affinity commands** (`taskpolicy` on macOS vs `taskset` on Linux vs Windows APIs)
+4. **Core type identification** (how to distinguish P-cores from E-cores)
+
+**Porting Effort**: ⚠️ **Moderate-Hard** (requires OS/architecture knowledge, but concepts are universal)
+
+**Example**:
+```python
+# Apple Silicon (macOS)
+def get_apple_core_types():
+    # M2: Cores 0-3 are E-cores, 4-7 are P-cores
+    e_cores = [0, 1, 2, 3]
+    p_cores = [4, 5, 6, 7]
+    return e_cores, p_cores
+
+def force_to_e_cores_macos(pid):
+    subprocess.run(['sudo', 'taskpolicy', '-c', '0x0F', '-p', str(pid)])
+
+# Intel Lunar Lake (Linux)
+def get_intel_core_types():
+    # Lunar Lake: First 4 cores are P-cores, next 4 are E-cores
+    p_cores = [0, 1, 2, 3]
+    e_cores = [4, 5, 6, 7]
+    return e_cores, p_cores  # Note: reversed order!
+
+def force_to_e_cores_linux(pid):
+    core_list = ','.join(map(str, [4, 5, 6, 7]))
+    subprocess.run(['taskset', '-cp', core_list, str(pid)])
+```
+
+---
+
+#### 4. **Thermal Time Constants** (🔴 Hardest - Requires Hardware Testing)
+
+**Challenge**: These constants are **physical properties** that **cannot be derived** from specifications. They must be **empirically measured** through dedicated thermal stress tests.
+
+**What Changes**:
+1. **Heat buildup time (`τ_build`)**: How fast heat accumulates during load (typically 100-500ms)
+2. **Heat dissipation time (`τ_dissipate`)**: How fast heat dissipates during idle (typically 1-5 seconds)
+3. **Cooling threshold**: Derived from the above: `τ_build / (τ_build + τ_dissipate)`
+
+**Porting Effort**: 🔴 **Highest** (requires physical hardware testing, cannot be "ported" - must be measured)
+
+**Measurement Process**:
+```python
+def measure_thermal_constants(component='cpu', duration_minutes=10):
+    """
+    Measure thermal time constants for a specific component.
+    
+    Process:
+    1. Run 100% load stress test for duration_minutes
+    2. Monitor power and temperature continuously
+    3. Stop load, continue monitoring during cool-down
+    4. Fit exponential curves to extract τ_build and τ_dissipate
+    """
+    import numpy as np
+    from scipy.optimize import curve_fit
+    
+    # Step 1: Measure heat buildup (during load)
+    power_rise_data = run_stress_test(duration_minutes, monitor='power')
+    
+    # Fit exponential: P(t) = P_max * (1 - e^(-t/τ_build))
+    def build_model(t, tau):
+        return power_max * (1 - np.exp(-t / tau))
+    
+    tau_build, _ = curve_fit(build_model, time_data, power_rise_data)
+    
+    # Step 2: Measure heat dissipation (after load stops)
+    power_decay_data = monitor_cool_down(duration_minutes, monitor='power')
+    
+    # Fit exponential: P(t) = P_baseline + (P_peak - P_baseline) * e^(-t/τ_dissipate)
+    def decay_model(t, tau):
+        return power_baseline + (power_peak - power_baseline) * np.exp(-t / tau)
+    
+    tau_dissipate, _ = curve_fit(decay_model, time_data, power_decay_data)
+    
+    # Step 3: Calculate cooling threshold
+    cooling_threshold = tau_build / (tau_build + tau_dissipate)
+    
+    return {
+        'heat_build_ms': tau_build * 1000,  # Convert to milliseconds
+        'heat_dissipate_ms': tau_dissipate * 1000,
+        'cooling_threshold': cooling_threshold
+    }
+```
+
+**Example Results**:
+```python
+# Apple Silicon M2 ANE (measured)
+thermal_constants_m2_ane = {
+    'heat_build_ms': 300,       # Heat builds up in 300ms
+    'heat_dissipate_ms': 2000,  # Heat dissipates in 2000ms
+    'cooling_threshold': 0.13   # 300 / (300 + 2000) = 13%
+}
+
+# Intel Lunar Lake CPU (needs measurement)
+thermal_constants_intel_cpu = {
+    'heat_build_ms': ???,       # Must measure on actual hardware
+    'heat_dissipate_ms': ???,   # Must measure on actual hardware
+    'cooling_threshold': ???    # Cannot calculate until above are known
+}
+
+# NVIDIA GPU (needs measurement)
+thermal_constants_nvidia_gpu = {
+    'heat_build_ms': ???,       # GPU thermal properties differ from CPU
+    'heat_dissipate_ms': ???,   # GPU cooling solution affects this
+    'cooling_threshold': ???    # Cannot calculate until above are known
+}
+```
+
+### Why Thermal Constants are Hardest
+
+1. **Physical Dependencies**: 
+   - Silicon thermal conductivity
+   - Package thermal resistance
+   - Cooling solution efficiency (fans, heat pipes, ambient temperature)
+   - These cannot be "ported" - they're hardware-specific
+
+2. **Measurement Complexity**:
+   - Requires controlled thermal stress tests
+   - Must account for ambient temperature
+   - Needs accurate temperature sensors
+   - May require multiple test runs for accuracy
+
+3. **Safety Critical**:
+   - Incorrect constants can cause:
+     - Overheating (if threshold too high)
+     - Unnecessary throttling (if threshold too low)
+   - Must be validated thoroughly
+
+4. **No Software Solution**:
+   - Cannot be "computed" from specifications
+   - Cannot be "estimated" from similar hardware
+   - **Must be measured on actual target hardware**
+
+### Summary: Porting Difficulty
+
+| Formula/Concept | Difficulty | Re-Calibration Required | Porting Effort |
+|-----------------|------------|------------------------|----------------|
+| **Mathematical Formulas** (AR, Skewness) | ✅ Easy | None | Zero changes |
+| **Power Monitoring** | ⚠️ Moderate | Tool integration | New parsers |
+| **Core Architecture** | ⚠️ Moderate-Hard | OS/architecture APIs | New detection logic |
+| **Thermal Constants** | 🔴 Hardest | Hardware measurement | Physical testing required |
+
+**Conclusion**: When porting to new hardware, **thermal time constants require the most effort** because they are the **only constants that cannot be "ported"** - they must be **empirically measured** on the target hardware through dedicated thermal stress testing.
+
+---
+
 ## Summary
 
 These three concepts work together:
