@@ -87,7 +87,7 @@ Each document:
 - ✅ Provides value to target audience
 - ✅ Follows SRP (one clear responsibility)
 
-**Total**: 14 documentation files (plus root README.md = 15 total), all serving distinct, long-term purposes.
+**Total**: 14 documentation files (plus root README.md and scripts/README.md = 16 total), all serving distinct, long-term purposes.
 
 ## Documentation Count Verification
 
