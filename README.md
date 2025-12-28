@@ -32,6 +32,9 @@ pip install power-benchmarking-suite
 **New Unified CLI (Recommended):**
 
 ```bash
+# Simplest entry point - just run with no arguments
+power-benchmark
+
 # Run unified benchmark (30 second test)
 sudo power-benchmark unified --test 30
 

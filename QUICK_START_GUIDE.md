@@ -99,10 +99,18 @@ pip install -e .
 
 **Verify installation:**
 ```bash
+# Simplest command - just run with no arguments
+power-benchmark
+```
+
+**Expected output**: Should show welcome message with quick start commands
+
+**Alternative verification:**
+```bash
 power-benchmark --help
 ```
 
-**Expected output**: Should show help menu with all commands
+**Expected output**: Should show full help menu with all commands
 
 **If command not found**: 
 - Ensure virtual environment is activated
@@ -112,7 +120,18 @@ power-benchmark --help
 
 ## 🧪 Step 2: Verify Installation (5 minutes)
 
-### 2.1 Check Premium Status
+### 2.1 First Command (Simplest Entry Point)
+
+```bash
+# Just run the command with no arguments - shows welcome message
+power-benchmark
+```
+
+**Expected output**: Welcome message with quick start commands
+
+**This is the simplest entry point** - no arguments needed, shows you what to do next!
+
+### 2.2 Check Premium Status
 
 ```bash
 power-benchmark --premium-status
@@ -130,7 +149,7 @@ Tier: FREE
 
 **If you see errors**: Installation may be incomplete, re-run `pip install -e .`
 
-### 2.2 Test Component Detection
+### 2.3 Test Component Detection
 
 ```bash
 # Check if powermetrics is available
@@ -141,7 +160,7 @@ which powermetrics
 
 **If not found**: You're not on macOS or powermetrics is missing (unlikely)
 
-### 2.3 Quick Component Test
+### 2.4 Quick Component Test
 
 ```bash
 # Run component test (no sudo needed)
@@ -563,6 +582,9 @@ You've successfully completed the Quick Start Guide! You now have:
 ## 🔧 Quick Reference Commands
 
 ```bash
+# Simplest entry point (no arguments needed!)
+power-benchmark
+
 # Installation
 pip install -e .
 

@@ -407,6 +407,30 @@ Examples:
     if args.upgrade:
         return cmd_upgrade(args)
     
+    # Handle no command (show welcome message)
+    if args.command is None and not any([args.mode, args.premium_status, args.upgrade]):
+        print("=" * 70)
+        print("🔋 Power Benchmarking Suite")
+        print("=" * 70)
+        print()
+        print("Quick Start:")
+        print("  sudo power-benchmark unified --test 30    # Run 30-second test")
+        print("  power-benchmark --premium-status          # Check your tier")
+        print()
+        print("Common Commands:")
+        print("  power-benchmark unified --test 30         # Quick benchmark")
+        print("  power-benchmark analyze --app Safari     # Analyze app power")
+        print("  power-benchmark visualize --csv file.csv # Visualize data")
+        print()
+        print("For help:")
+        print("  power-benchmark --help                    # Full help menu")
+        print("  power-benchmark --premium-status          # Check features")
+        print()
+        print("Documentation:")
+        print("  See QUICK_START_GUIDE.md for a complete 1-2 hour walkthrough")
+        print("=" * 70)
+        return 0
+    
     # Handle subcommands
     if args.command == "unified" or args.command == "u":
         return cmd_unified(args)
