@@ -206,6 +206,181 @@ These scripts can be integrated into:
 
 ---
 
+## The Validation Standard: Ensuring New Features Don't Break AR Accuracy
+
+**Question**: Now that you have a "Complete Validation Framework," how do we use this document to ensure that a new feature (like a GPU-specific thermal controller) doesn't accidentally break our Attribution Ratio (AR) accuracy?
+
+**Answer**: Use the validation framework as a **regression testing standard** - run attribution validation before and after implementing new features to ensure AR accuracy is maintained.
+
+### The Validation Workflow for New Features
+
+#### Step 1: Establish Baseline AR Accuracy
+
+**Before implementing new feature**, run attribution validation:
+
+```bash
+# Establish baseline AR accuracy
+sudo python3 scripts/validate_attribution.py --cores 4 --virus-duration 60
+
+# Expected: AR > 70% (good process tracking)
+# Document baseline: AR = 85.2%
+```
+
+**Baseline Metrics**:
+- Attribution Ratio: **85.2%** (baseline)
+- Power delta accuracy: **±5%** (baseline)
+- Process tracking: **Working correctly** (baseline)
+
+#### Step 2: Implement New Feature
+
+**Example**: GPU-specific thermal controller
+
+```python
+# New feature: GPU thermal controller
+class GPUThermalController:
+    def calculate_ar(self, gpu_power, total_power, baseline):
+        # New AR calculation for GPU
+        return (gpu_power - baseline) / (total_power - baseline)
+```
+
+#### Step 3: Run Attribution Validation Again
+
+**After implementing new feature**, run the same validation:
+
+```bash
+# Verify AR accuracy after new feature
+sudo python3 scripts/validate_attribution.py --cores 4 --virus-duration 60
+
+# Compare to baseline: AR should be within ±5% of baseline
+```
+
+**Validation Criteria** (from VALIDATION.md):
+- ✅ **AR > 70%**: Good process tracking (maintained)
+- ✅ **AR within ±5% of baseline**: No regression
+- ⚠️ **AR < 70% OR >±5% from baseline**: Feature broke AR accuracy
+
+#### Step 4: Interpret Results
+
+**Scenario A: AR Maintained (✅ PASS)**
+
+```
+Baseline AR: 85.2%
+After GPU Controller: 84.8%
+Difference: -0.4% (within ±5% tolerance)
+
+✅ PASS: AR accuracy maintained
+→ Feature is safe to merge
+```
+
+**Scenario B: AR Degraded (⚠️ FAIL)**
+
+```
+Baseline AR: 85.2%
+After GPU Controller: 65.3%
+Difference: -19.9% (outside ±5% tolerance)
+
+⚠️ FAIL: AR accuracy degraded
+→ Feature broke AR calculation
+→ Need to investigate and fix
+```
+
+### What Could Break AR Accuracy?
+
+**Common Issues with New Features**:
+
+1. **Modified Baseline Calculation**:
+   - **Problem**: New feature changes how baseline is calculated
+   - **Impact**: AR formula becomes inaccurate (wrong denominator)
+   - **Fix**: Ensure baseline calculation remains consistent
+
+2. **Changed Power Measurement**:
+   - **Problem**: New feature uses different power measurement method
+   - **Impact**: Power values don't match previous measurements
+   - **Fix**: Standardize power measurement across all features
+
+3. **Interference with Process Tracking**:
+   - **Problem**: New feature interferes with process power tracking
+   - **Impact**: Process power not accurately measured
+   - **Fix**: Isolate new feature from process tracking logic
+
+### Validation Checklist for New Features
+
+**Use this checklist before merging new features**:
+
+- [ ] **Run baseline validation**: Establish AR accuracy before changes
+- [ ] **Implement feature**: Add new functionality
+- [ ] **Run validation again**: Check AR accuracy after changes
+- [ ] **Compare results**: AR within ±5% of baseline?
+- [ ] **Check AR > 70%**: Process tracking still accurate?
+- [ ] **Review power measurements**: Consistent with previous measurements?
+- [ ] **Test edge cases**: Handle baseline = 0, power < baseline, etc.
+
+### Example: GPU Thermal Controller Validation
+
+**Feature**: GPU-specific thermal controller that throttles GPU power
+
+**Validation Process**:
+
+1. **Baseline**:
+   ```bash
+   sudo python3 scripts/validate_attribution.py --cores 4
+   # Result: AR = 85.2% (baseline established)
+   ```
+
+2. **Implement GPU Controller**:
+   ```python
+   class GPUThermalController:
+       def throttle_gpu(self, target_burst_fraction):
+           # GPU throttling logic
+           pass
+   ```
+
+3. **Re-run Validation**:
+   ```bash
+   sudo python3 scripts/validate_attribution.py --cores 4
+   # Result: AR = 84.8% (within ±5% tolerance)
+   ```
+
+4. **Result**: ✅ **PASS** - AR accuracy maintained
+
+### Integration with CI/CD
+
+**Automated Validation Pipeline**:
+
+```yaml
+# .github/workflows/validate.yml
+- name: Baseline Attribution Validation
+  run: sudo python3 scripts/validate_attribution.py --cores 4
+  
+- name: Run Tests
+  run: pytest tests/
+  
+- name: Attribution Regression Test
+  run: |
+    BASELINE_AR=$(sudo python3 scripts/validate_attribution.py --cores 4 | grep "Attribution Ratio" | awk '{print $3}')
+    CURRENT_AR=$(sudo python3 scripts/validate_attribution.py --cores 4 | grep "Attribution Ratio" | awk '{print $3}')
+    DIFF=$(echo "$BASELINE_AR - $CURRENT_AR" | bc)
+    if (( $(echo "$DIFF > 5 || $DIFF < -5" | bc -l) )); then
+      echo "❌ AR accuracy regression detected: $DIFF%"
+      exit 1
+    fi
+```
+
+### The Value of the Validation Standard
+
+**Before**: No way to verify new features don't break accuracy
+**After**: Systematic validation ensures AR accuracy is maintained
+
+**Benefits**:
+1. **Prevents Regressions**: Catch accuracy issues before merging
+2. **Quantitative Testing**: ±5% tolerance provides clear pass/fail criteria
+3. **Automated**: Can integrate into CI/CD for continuous validation
+4. **Confidence**: Know that new features maintain suite accuracy
+
+**Conclusion**: The validation framework serves as a **quality gate** - new features must pass attribution validation before being merged, ensuring the suite's accuracy remains intact.
+
+---
+
 ### 4. P-Core Tax Calculation
 
 **Script**: `scripts/validate_pcore_tax.py`

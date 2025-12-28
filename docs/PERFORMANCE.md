@@ -119,3 +119,127 @@ The conversion from PyTorch to CoreML shows a **dramatic 57x latency improvement
 
 **Status**: Ready for power measurements! 🚀
 
+---
+
+## The Performance Evolution: Documented Formulas Change Interpretation
+
+**Question**: Now that you've replaced "Pending" tasks with actual formulas, how does having the math documented right next to the benchmark data change how we interpret a "10% improvement" in the future?
+
+**Answer**: Documented formulas provide **contextual meaning** to improvements, transforming raw numbers into actionable insights about efficiency, energy savings, and user experience impact.
+
+### Before: Raw Numbers Without Context
+
+**Without Formulas**:
+```
+10% improvement in latency
+→ Is this good? Bad? Significant?
+→ What does it mean for energy?
+→ How does it compare to the 57x improvement?
+→ Unclear significance
+```
+
+**Problem**: Without formulas, improvements are just numbers. There's no way to understand:
+- **Energy impact**: Does 10% latency improvement = 10% energy savings?
+- **Statistical significance**: Is 10% within measurement error?
+- **Relative performance**: Is 10% good compared to baseline?
+
+### After: Formulas Provide Contextual Meaning
+
+**With Formulas Documented**:
+
+```
+Energy per Inference = Power (W) × Latency (s)
+
+10% latency improvement:
+- Original: 0.49 ms latency
+- Improved: 0.441 ms latency (10% faster)
+- If power stays same: 10% less energy per inference
+- If power increases: May not save energy (need to calculate)
+
+Energy Impact Calculation:
+- Original: 1500 mW × 0.00049s = 0.735 mJ
+- Improved: 1500 mW × 0.000441s = 0.662 mJ
+- Energy savings: 0.073 mJ (10% reduction) ✅
+
+But if power increases:
+- Improved: 1650 mW × 0.000441s = 0.728 mJ
+- Energy savings: 0.007 mJ (1% reduction) ⚠️
+```
+
+### How Formulas Change Interpretation
+
+#### 1. **Energy-Aware Analysis**
+
+**Formula**: `Energy = Power × Time`
+
+**10% latency improvement** means different things depending on power:
+- **Power constant**: 10% latency improvement = 10% energy savings ✅
+- **Power increases**: 10% latency improvement may not save energy ⚠️
+- **Power decreases**: 10% latency + lower power = even better ✅
+
+**Action**: Use formula to calculate actual energy impact, not just assume latency = energy.
+
+#### 2. **Statistical Significance**
+
+**Formula**: `Speedup Factor = Old_Latency / New_Latency`
+
+**10% improvement** in context of 57x baseline:
+- **Baseline**: 57x improvement (PyTorch → CoreML)
+- **10% on top**: 57x × 1.1 = 62.7x improvement
+- **Significance**: Small relative improvement (10%) but huge absolute impact (62.7x)
+
+**Action**: Compare improvement to baseline magnitude, not just percentage.
+
+#### 3. **Relative Performance Context**
+
+**Formula**: `Efficiency Ratio = PyTorch_Energy / CoreML_Energy`
+
+**10% improvement** on CoreML:
+- **Original CoreML**: 75-450x more efficient than PyTorch
+- **10% improved CoreML**: 82.5-495x more efficient
+- **Context**: Even small improvements are significant on an already efficient system
+
+**Action**: Understand improvement in context of baseline efficiency.
+
+### Example: Interpreting a Future 10% Improvement
+
+**Scenario**: Future optimization reduces ANE latency from 0.49ms to 0.441ms (10% improvement)
+
+**Without Formulas**:
+- "10% improvement" → Unclear significance
+
+**With Formulas** (documented in PERFORMANCE.md):
+- **Energy Impact**: `Energy = Power × Time`
+  - Original: 1500 mW × 0.00049s = 0.735 mJ
+  - Improved: 1500 mW × 0.000441s = 0.662 mJ
+  - Savings: 0.073 mJ (10% reduction) ✅
+  
+- **Relative Context**: `Speedup Factor = Old / New`
+  - Baseline: 57x vs PyTorch
+  - Improved: 62.7x vs PyTorch
+  - Significance: Small percentage, but maintains huge absolute advantage
+  
+- **Efficiency Context**: `Efficiency Ratio = PyTorch_Energy / CoreML_Energy`
+  - Original: 75-450x more efficient
+  - Improved: 82.5-495x more efficient
+  - Impact: Continues to widen efficiency gap
+
+**Result**: Formulas transform "10% improvement" into:
+- ✅ **10% energy savings** (if power constant)
+- ✅ **62.7x speedup** (absolute improvement)
+- ✅ **82.5-495x efficiency** (continues dominance)
+
+### The Value of Documented Formulas
+
+**Before**: Improvements are just numbers
+**After**: Improvements have contextual meaning
+
+**Benefits**:
+1. **Energy-Aware**: Can calculate actual energy impact
+2. **Statistically Significant**: Can compare to baseline magnitude
+3. **Contextually Relevant**: Can understand relative performance
+4. **Actionable**: Can make informed decisions about optimizations
+
+**Conclusion**: Documented formulas transform performance numbers from raw data into **actionable insights** that guide optimization decisions and provide meaningful context for improvements.
+
+---
