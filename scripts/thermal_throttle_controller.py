@@ -482,6 +482,49 @@ class ThermalThrottleController:
                     # **Implementation**: Track throttle level and detect user behavior changes
                     # (This is a framework - actual user feedback would require monitoring system events)
                     
+                    # The Annoyance Detection Loop: Distinguishing Frustration vs Natural Activity
+                    #
+                    # **The Problem**: How do we distinguish between:
+                    # - User frustrated by lag (annoyance signal)
+                    # - User just being naturally active (normal usage)
+                    #
+                    # **The Strategy**: Use temporal correlation and pattern analysis
+                    #
+                    # **1. Temporal Correlation**:
+                    # - **Frustration pattern**: User activity spikes IMMEDIATELY after throttle
+                    #   * Throttle at T=0 → User clicks more at T=0.5s (correlated)
+                    #   * This indicates user noticed lag and is frustrated
+                    #
+                    # - **Natural activity**: User activity is independent of throttle
+                    #   * Throttle at T=0 → User clicks at T=5s (uncorrelated)
+                    #   * This indicates normal usage, not frustration
+                    #
+                    # **2. Pattern Analysis**:
+                    # - **Frustration indicators**:
+                    #   * Rapid repeated clicks (user trying to "wake up" laggy app)
+                    #   * App switching within 1-2 seconds (user escaping lag)
+                    #   * Mouse/keyboard activity spike >3× baseline (user frustrated)
+                    #
+                    # - **Natural activity indicators**:
+                    #   * Steady click rate (user working normally)
+                    #   * App switching after 10+ seconds (normal workflow)
+                    #   * Mouse/keyboard activity within normal range (1-2× baseline)
+                    #
+                    # **3. Baseline Comparison**:
+                    # - Measure user activity BEFORE throttling (baseline)
+                    # - Measure user activity AFTER throttling
+                    # - If activity >3× baseline AND correlated with throttle → Frustration
+                    # - If activity ≈ baseline OR uncorrelated → Natural activity
+                    #
+                    # **Example**:
+                    # - Baseline: 5 clicks/min (normal activity)
+                    # - After throttle: 15 clicks/min (3× baseline) → Frustration
+                    # - After throttle: 6 clicks/min (≈ baseline) → Natural activity
+                    #
+                    # **Implementation Note**: This requires system event monitoring
+                    # (mouse/keyboard events, app switching) which is beyond this script's scope,
+                    # but the framework is documented here for future implementation.
+                    
                     # Implement gradual throttling (don't drop instantly)
                     if self.throttled_pids:
                         # Already throttled - check if we need to throttle more
@@ -501,9 +544,24 @@ class ThermalThrottleController:
                             # Estimate "Threshold of Annoyance" (typically around 15-20% reduction)
                             # This is empirical - users typically notice around 80-85% CPU
                             annoyance_threshold = 0.80  # 80% CPU = 20% reduction
+                            
+                            # Check if we're approaching threshold
                             if throttle_level <= annoyance_threshold:
                                 print(f"     ⚠️  Approaching 'Threshold of Annoyance' ({throttle_level*100:.0f}% CPU)")
                                 print(f"     → User may start to notice performance degradation")
+                                print(f"     → Monitor for frustration signals:")
+                                print(f"        • Rapid repeated clicks (>3× baseline)")
+                                print(f"        • App switching within 1-2 seconds")
+                                print(f"        • Mouse/keyboard activity spike (correlated with throttle)")
+                                
+                                # Store throttle event for correlation analysis
+                                if not hasattr(self, '_throttle_events'):
+                                    self._throttle_events = []
+                                self._throttle_events.append({
+                                    'time': time.time(),
+                                    'throttle_level': throttle_level,
+                                    'burst_fraction': burst_fraction
+                                })
                             
                             print(f"     (Gradual throttling: {current_throttle*100:.0f}% → {throttle_level*100:.0f}% "
                                   f"({steps_taken} steps) to avoid stutter)")
