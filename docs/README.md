@@ -54,6 +54,9 @@ All documentation follows the **Single Responsibility Principle (SRP)** - each f
 - **[CLOUDD_ANALYSIS.md](CLOUDD_ANALYSIS.md)** - Practical walkthrough example  
   *Purpose*: Complete example analyzing cloudd (iCloud sync) demonstrating all three advanced concepts
 
+- **[UNIVERSAL_METRICS.md](UNIVERSAL_METRICS.md)** - Cross-architecture porting guide  
+  *Purpose*: Analyzes which concepts translate to other architectures (Intel, AMD) and what needs to change
+
 ---
 
 ## Navigation Guide
@@ -84,7 +87,7 @@ Each document:
 - ✅ Provides value to target audience
 - ✅ Follows SRP (one clear responsibility)
 
-**Total**: 13 documentation files (plus root README.md = 14 total), all serving distinct, long-term purposes.
+**Total**: 14 documentation files (plus root README.md = 15 total), all serving distinct, long-term purposes.
 
 ## Documentation Count Verification
 
@@ -97,7 +100,7 @@ Each document:
 - QUICK_REFERENCE.md
 - VISUAL_GUIDE.md
 
-**Technical Docs (9):**
+**Technical Docs (10):**
 - docs/README.md (this file - index)
 - ARCHITECTURE.md
 - TECHNICAL_DEEP_DIVE.md
@@ -107,6 +110,7 @@ Each document:
 - ADVANCED_FEATURES.md
 - ADVANCED_CONCEPTS.md
 - CLOUDD_ANALYSIS.md
+- UNIVERSAL_METRICS.md
 
 **Distinction Between Similar Docs:**
 - **ADVANCED_FEATURES.md**: Usage guide for three new features (adversarial, profiling, ANE/GPU) - "How to use"
