@@ -49,9 +49,12 @@
   - `calculate_battery_life_advantage()` (Manager's Pitch)
   - `calculate_environmental_roi()` (Carbon Break-Even)
   - `prioritize_backlog_by_sustainability()` (Carbon Backlog)
-  - `calculate_safety_ceiling()` (Thermal Efficiency Balance) [NEW]
-  - `evaluate_sustainability_vs_performance()` (Sustainable Roadmap) [NEW]
-  - `build_marketing_value_proposition()` (Competitive Advantage) [NEW]
+  - `calculate_safety_ceiling()` (Thermal Efficiency Balance)
+  - `evaluate_sustainability_vs_performance()` (Sustainable Roadmap)
+  - `build_marketing_value_proposition()` (Competitive Advantage)
+  - `thermal_guardian_optimize_power_profile()` (Thermal Guardian) [NEW]
+  - `calculate_long_term_performance_play()` (Greener Tie-Breaker) [NEW]
+  - `generate_battery_life_whitepaper_proof()` (Battery Life Proof) [NEW]
 
 ### 7. Validation Scripts
 - **Documentation**: `docs/VALIDATION.md`
@@ -132,6 +135,9 @@
 | **Safety Ceiling (Mobile Apps)** | ✅ | ✅ | 100% |
 | **Sustainable Roadmap Decision** | ✅ | ✅ | 100% |
 | **Marketing Value Proposition** | ✅ | ✅ | 100% |
+| **Thermal Guardian (35°C)** | ✅ | ✅ | 100% |
+| **Greener Tie-Breaker** | ✅ | ✅ | 100% |
+| **Battery Life Proof** | ✅ | ✅ | 100% |
 | **Validation Scripts** | ✅ | ✅ | 100% |
 | **Advanced Features** | ✅ | ✅ | 100% |
 | **Intelligent Enhancements** | ✅ | ✅ | 100% |
