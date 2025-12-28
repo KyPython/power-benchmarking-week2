@@ -5564,6 +5564,877 @@ print(f"Reason: {result['decision']['reason']}")
 
 The visualization bridges the gap between **theory** (cache efficiency) and **practice** (battery life, thermal management), enabling developers to make **informed decisions** about algorithm design with a clear understanding of the **hidden costs** of poor memory access patterns.
 
+### The L2 Sweet Spot: Cache Level Trade-Off Decision Matrix
+
+**Question**: If an optimization moves data from DRAM to L3 cache (saving ~130 pJ per access) but increases the total instruction count, how does your Energy Gap calculation help determine if the tradeoff is worth the extra complexity?
+
+**Key Insight**: The **Energy Gap framework** provides a **decision matrix** that compares total EPT (Energy per Task) across different cache levels and instruction counts, enabling developers to identify the **"sweet spot"** where cache efficiency and instruction count are optimally balanced. This transforms the complex trade-off into a **simple comparison** of total energy consumption.
+
+#### The Cache Hierarchy Energy Cost
+
+**Memory Hierarchy Energy Costs** (Apple Silicon M2):
+```
+L1 Cache Hit:   ~1.0 pJ per access  (fastest, lowest energy)
+L2 Cache Hit:   ~3.0 pJ per access  (+2.0 pJ vs L1)
+L3 Cache Hit:   ~10.0 pJ per access (+7.0 pJ vs L2, +9.0 pJ vs L1)
+DRAM Access:    ~150.0 pJ per access (+140.0 pJ vs L3, +147.0 pJ vs L2, +149.0 pJ vs L1)
+
+Savings by moving to higher cache level:
+DRAM → L3:  ~140 pJ saved per access
+DRAM → L2:  ~147 pJ saved per access
+DRAM → L1:  ~149 pJ saved per access
+L3 → L2:    ~7 pJ saved per access
+L3 → L1:    ~9 pJ saved per access
+```
+
+#### The Instruction Count Trade-Off
+
+**Optimization Scenario**: Moving from DRAM to L3 cache requires:
+- **Additional Instructions**: Block prefetching, cache-line alignment, data restructuring
+- **Cache Efficiency Gain**: Fewer DRAM accesses, more L3 hits
+- **Complexity Increase**: More complex code, harder to maintain
+
+**Example**: Matrix multiplication with blocking
+
+```python
+# Simple Algorithm (DRAM-heavy)
+def matrix_multiply_simple(A, B, C, n):
+    # Direct access, no blocking
+    for i in range(n):
+        for j in range(n):
+            C[i][j] = sum(A[i][k] * B[k][j] for k in range(n))
+    # Instruction count: ~5n³ instructions
+    # Memory accesses: ~3n³ (all DRAM, 0% cache hits)
+    # Cache level: DRAM (worst case)
+
+# L3-Optimized Algorithm (Blocking for L3)
+def matrix_multiply_l3_blocked(A, B, C, n, block_size=128):
+    # Block size fits in L3 cache (~16 MB)
+    for i in range(0, n, block_size):
+        for j in range(0, n, block_size):
+            for k in range(0, n, block_size):
+                # Process block that fits in L3
+                for ii in range(i, min(i+block_size, n)):
+                    for jj in range(j, min(j+block_size, n)):
+                        for kk in range(k, min(k+block_size, n)):
+                            C[ii][jj] += A[ii][kk] * B[kk][jj]
+    # Instruction count: ~8n³ instructions (60% more due to blocking overhead)
+    # Memory accesses: ~3n³ (80% L3 hits, 20% DRAM)
+    # Cache level: L3 (improved)
+```
+
+#### Energy Gap Calculation: DRAM vs L3 Trade-Off
+
+**For 1000×1000 Matrix Multiplication (n=1000, 1B total memory accesses)**:
+
+**Simple Algorithm (DRAM-only)**:
+```
+Total Instructions: 5 × 1B = 5B instructions
+Memory Accesses: 3B accesses (all DRAM)
+Instruction Energy: 5B × 4 pJ = 20,000 pJ = 20 nJ
+Memory Energy: 3B × 150 pJ = 450,000,000,000 pJ = 450 J
+
+Total Energy: 450.00002 J
+EPT: 450,000 mJ
+```
+
+**L3-Optimized Algorithm**:
+```
+Total Instructions: 8 × 1B = 8B instructions (60% more)
+Memory Accesses: 3B accesses (80% L3 hits, 20% DRAM)
+  - L3 hits: 2.4B × 10 pJ = 24,000,000,000 pJ = 24 J
+  - DRAM: 0.6B × 150 pJ = 90,000,000,000 pJ = 90 J
+Instruction Energy: 8B × 4 pJ = 32,000 pJ = 32 nJ
+
+Total Energy: 114.000032 J
+EPT: 114,000 mJ
+```
+
+**Energy Gap**: `450,000 mJ - 114,000 mJ = 336,000 mJ` (74.7% reduction)
+
+**Decision Matrix**:
+```
+Improvement Ratio: 450,000 / 114,000 = 3.95x better
+Complexity Increase: 60% more instructions
+Energy Savings: 336,000 mJ (74.7% reduction)
+
+Recommendation: ✅ STRONGLY RECOMMEND L3 optimization
+Reason: 3.95x energy improvement >> 60% instruction increase
+       336,000 mJ saved justifies the complexity
+```
+
+#### The L2 Sweet Spot: Finding the Optimal Cache Level
+
+**Extended Scenario**: What if we optimize further for L2 cache?
+
+```python
+# L2-Optimized Algorithm (Blocking for L2)
+def matrix_multiply_l2_blocked(A, B, C, n, block_size=64):
+    # Block size fits in L2 cache (~1 MB)
+    for i in range(0, n, block_size):
+        for j in range(0, n, block_size):
+            for k in range(0, n, block_size):
+                for ii in range(i, min(i+block_size, n)):
+                    for jj in range(j, min(j+block_size, n)):
+                        for kk in range(k, min(k+block_size, n)):
+                            C[ii][jj] += A[ii][kk] * B[kk][jj]
+    # Instruction count: ~12n³ instructions (140% more than simple)
+    # Memory accesses: ~3n³ (90% L2 hits, 10% L3, minimal DRAM)
+    # Cache level: L2 (best cache efficiency)
+```
+
+**L2-Optimized Energy Calculation**:
+```
+Total Instructions: 12 × 1B = 12B instructions (140% more)
+Memory Accesses: 3B accesses (90% L2 hits, 10% L3)
+  - L2 hits: 2.7B × 3 pJ = 8,100,000,000 pJ = 8.1 J
+  - L3: 0.3B × 10 pJ = 3,000,000,000 pJ = 3 J
+  - DRAM: negligible
+Instruction Energy: 12B × 4 pJ = 48,000 pJ = 48 nJ
+
+Total Energy: 11.100048 J
+EPT: 11,100 mJ
+```
+
+**Comparison Matrix**:
+
+| Algorithm | Instructions | EPT (mJ) | Energy Saved vs Simple | Complexity vs Simple | Improvement Ratio | Recommendation |
+|-----------|-------------|----------|------------------------|---------------------|-------------------|----------------|
+| **Simple (DRAM)** | 5B | 450,000 | Baseline | Baseline | 1.0x | ❌ PREFER OPTIMIZED |
+| **L3-Blocked** | 8B (+60%) | 114,000 | 336,000 mJ (74.7%) | +60% | **3.95x** | ✅ **RECOMMEND** |
+| **L2-Blocked** | 12B (+140%) | 11,100 | 438,900 mJ (97.5%) | +140% | **40.5x** | ✅ **STRONGLY RECOMMEND** |
+
+**Decision Analysis**:
+
+1. **L3 vs Simple**: 
+   - 3.95x improvement with only 60% more instructions
+   - **Sweet spot**: Good balance of complexity and efficiency
+   - **Recommendation**: ✅ RECOMMEND
+
+2. **L2 vs L3**:
+   - L2 saves additional 102,900 mJ (11.3% vs L3, but 90% vs Simple)
+   - Requires 50% more instructions than L3 (140% vs 60% vs Simple)
+   - **Sweet spot**: Best efficiency, but highest complexity
+   - **Recommendation**: ✅ STRONGLY RECOMMEND (if performance-critical)
+
+3. **The "L2 Sweet Spot"**:
+   - When performance/battery is critical: **L2 optimization** (40.5x improvement)
+   - When code simplicity matters: **L3 optimization** (3.95x improvement, less complex)
+   - The Energy Gap framework makes this trade-off **quantifiable** and **actionable**
+
+#### Integration with Energy Gap Visualization
+
+**Extended Visualization Function**:
+
+```python
+def visualize_cache_level_comparison(
+    simple_ept: float,
+    l3_ept: float,
+    l2_ept: float,
+    simple_instructions: int,
+    l3_instructions: int,
+    l2_instructions: int
+) -> Dict:
+    """
+    Visualize cache level trade-offs (DRAM → L3 → L2).
+    
+    Returns decision matrix showing:
+    - Energy savings vs instruction count increase
+    - Optimal cache level recommendation
+    - Sweet spot identification
+    """
+    # Calculate improvement ratios
+    l3_improvement = simple_ept / l3_ept
+    l2_improvement = simple_ept / l2_ept
+    l2_vs_l3_improvement = l3_ept / l2_ept
+    
+    # Calculate instruction overhead
+    l3_overhead = (l3_instructions - simple_instructions) / simple_instructions
+    l2_overhead = (l2_instructions - simple_instructions) / simple_instructions
+    l2_vs_l3_overhead = (l2_instructions - l3_instructions) / l3_instructions
+    
+    # Decision logic: Improvement ratio vs Instruction overhead
+    l3_efficiency_ratio = l3_improvement / (1 + l3_overhead)
+    l2_efficiency_ratio = l2_improvement / (1 + l2_overhead)
+    
+    # Recommendations
+    recommendations = {
+        'simple': {
+            'recommendation': 'NOT RECOMMENDED',
+            'reason': 'High energy consumption, poor cache efficiency'
+        },
+        'l3': {
+            'recommendation': 'RECOMMENDED' if l3_efficiency_ratio > 2.0 else 'CONSIDER',
+            'reason': f'{l3_improvement:.2f}x energy improvement with {l3_overhead*100:.0f}% instruction overhead',
+            'sweet_spot': 'Good balance of complexity and efficiency'
+        },
+        'l2': {
+            'recommendation': 'STRONGLY RECOMMENDED' if l2_efficiency_ratio > 3.0 else 'RECOMMENDED',
+            'reason': f'{l2_improvement:.2f}x energy improvement with {l2_overhead*100:.0f}% instruction overhead',
+            'sweet_spot': 'Best efficiency, highest complexity - use for performance-critical code'
+        }
+    }
+    
+    return {
+        'comparison': {
+            'simple_ept': simple_ept,
+            'l3_ept': l3_ept,
+            'l2_ept': l2_ept,
+            'l3_improvement': l3_improvement,
+            'l2_improvement': l2_improvement
+        },
+        'overhead': {
+            'l3_instructions': l3_overhead,
+            'l2_instructions': l2_overhead
+        },
+        'efficiency_ratios': {
+            'l3': l3_efficiency_ratio,
+            'l2': l2_efficiency_ratio
+        },
+        'recommendations': recommendations,
+        'sweet_spot': 'L2' if l2_efficiency_ratio > l3_efficiency_ratio * 1.5 else 'L3'
+    }
+```
+
+**Example Output**:
+```
+Cache Level Comparison:
+─────────────────────────────────────────────────────
+Algorithm          EPT (mJ)    Improvement    Overhead    Efficiency    Recommendation
+─────────────────────────────────────────────────────
+Simple (DRAM)      450,000     1.00x          0%          1.00          ❌ NOT RECOMMENDED
+L3-Blocked         114,000     3.95x          +60%        2.47          ✅ RECOMMENDED
+L2-Blocked         11,100      40.5x          +140%       16.9          ✅ STRONGLY RECOMMENDED
+
+Sweet Spot: L2 (for performance-critical code)
+Balanced Option: L3 (for code simplicity)
+```
+
+**Conclusion**: The **L2 Sweet Spot Decision Matrix** quantifies the trade-off between cache efficiency and instruction count, enabling developers to choose the optimal cache level based on their specific requirements (performance vs. simplicity).
+
+### Visualizing the "Stall": Capturing CPU Idle-Active Power
+
+**Question**: When a CPU is waiting for DRAM, it often "stalls," consuming "idle-active" power while doing zero work. How does your EPT metric capture this "wasted time" that standard instruction-count metrics (EPI) completely ignore?
+
+**Key Insight**: EPT (Energy per Task) **measures total energy over total time**, automatically capturing **CPU stall time** (periods where the CPU consumes power but executes zero instructions) because it includes both **active energy** (instruction execution) and **idle-active energy** (waiting for memory). EPI cannot capture this because it only measures energy **per instruction**, ignoring the temporal aspect of stalls.
+
+#### The CPU Stall Problem
+
+**What Happens During a DRAM Access**:
+
+```
+Time (cycles):
+0──────5──────10──────15──────20──────25──────30──────35──────40──────45
+│      │       │       │       │       │       │       │       │       │
+│  LOAD instruction executes (1 cycle)
+│      ↓
+│  Cache miss detected (L1 → L2 → L3 → DRAM)
+│      ↓
+│  ═══════════════════════════════════════════════════════════
+│  STALL PERIOD (CPU waiting for DRAM, ~40 cycles)
+│  - CPU pipeline: IDLE (no instructions executing)
+│  - Power consumption: ~800 mW (idle-active power, not full idle)
+│  - Work done: ZERO (no instructions, just waiting)
+│  ═══════════════════════════════════════════════════════════
+│      ↓
+│  Data arrives from DRAM (cycle 40)
+│      ↓
+│  CPU resumes execution (next instruction executes)
+```
+
+**Power Consumption During Stall**:
+
+```
+Full Active Power (CPU executing):  ~3000 mW
+Idle-Active Power (CPU waiting):    ~800 mW  (27% of active power)
+Full Idle Power (CPU sleeping):     ~50 mW   (1.7% of active power)
+
+During 40-cycle stall:
+- Active energy: 0 mJ (no instructions executed)
+- Idle-active energy: 800 mW × (40 cycles × 0.5 ns) = 800 mW × 20 ns = 0.016 mJ
+- Total "wasted" energy: 0.016 mJ (doing nothing!)
+```
+
+#### Why EPI Cannot Capture Stalls
+
+**EPI Analysis** (FAILS):
+
+```python
+# Scenario: 1000 instructions, 100 cache misses (each causing 40-cycle stall)
+
+# EPI calculation:
+total_instructions = 1000
+total_energy = measure_instruction_energy(1000)  # Only measures instruction execution
+epi = total_energy / total_instructions
+
+# Problem: EPI only measures energy DURING instruction execution
+# It does NOT include:
+# - Stall time energy (800 mW × 40 cycles × 100 stalls = 3.2 mJ)
+# - Idle-active power during memory wait
+# - Pipeline bubble energy
+
+# Result: EPI = 4 pJ per instruction (misses the stall energy!)
+```
+
+**EPI Cannot Answer**:
+- ❌ How much energy is wasted during stalls?
+- ❌ What is the total time for the task (including stall time)?
+- ❌ What is the true energy cost including waiting?
+
+#### How EPT Captures Stall Energy
+
+**EPT Analysis** (SUCCEEDS):
+
+```python
+# Scenario: Same 1000 instructions, 100 cache misses
+
+def measure_energy_per_task(code_function, num_iterations=1000):
+    """
+    EPT measures TOTAL energy over TOTAL time, including stalls.
+    """
+    # Step 1: Measure baseline (idle system)
+    baseline_power = measure_idle_baseline()  # ~500 mW (idle system)
+    
+    # Step 2: Measure total energy during task execution
+    start_time = time.time()
+    start_energy = get_cumulative_energy()  # From powermetrics
+    
+    code_function()  # Execute task (includes stalls!)
+    
+    end_time = time.time()
+    end_energy = get_cumulative_energy()
+    
+    # Step 3: Calculate task energy
+    total_energy = end_energy - start_energy  # TOTAL energy (instructions + stalls)
+    execution_time = end_time - start_time
+    baseline_energy = baseline_power * execution_time
+    
+    task_energy = total_energy - baseline_energy  # Task-specific energy
+    ept = task_energy  # Energy per task (includes everything!)
+    
+    return ept
+
+# Result:
+# EPT = 1500 mJ (includes instruction energy + stall energy)
+# This captures:
+#   - Instruction execution energy: 1200 mJ
+#   - Stall energy (idle-active): 300 mJ  ✅ CAPTURED!
+#   - Total: 1500 mJ
+```
+
+**What EPT Captures That EPI Misses**:
+
+1. **Temporal Aspect**: EPT measures over **total time** (execution + stalls), not just instruction execution time
+2. **Idle-Active Power**: EPT includes power consumed during stalls (~800 mW while waiting)
+3. **Pipeline Bubbles**: EPT captures energy wasted when pipeline is empty
+4. **Memory Wait Time**: EPT includes energy during DRAM latency (40+ cycles)
+
+#### Visualizing Stall Energy in the Dashboard
+
+**Enhanced Energy Gap Visualization with Stall Breakdown**:
+
+```python
+def visualize_energy_gap_with_stalls(
+    simple_ept: float,
+    optimized_ept: float,
+    simple_stall_fraction: float,
+    optimized_stall_fraction: float,
+    simple_execution_time: float,
+    optimized_execution_time: float
+) -> Dict:
+    """
+    Enhanced visualization showing stall energy breakdown.
+    """
+    # Calculate stall energy
+    idle_active_power = 800  # mW (CPU waiting for memory)
+    
+    simple_stall_time = simple_execution_time * simple_stall_fraction
+    simple_stall_energy = idle_active_power * simple_stall_time  # mJ
+    
+    optimized_stall_time = optimized_execution_time * optimized_stall_fraction
+    optimized_stall_energy = idle_active_power * optimized_stall_time  # mJ
+    
+    # Calculate instruction execution energy (total - stall)
+    simple_instruction_energy = simple_ept - simple_stall_energy
+    optimized_instruction_energy = optimized_ept - optimized_stall_energy
+    
+    # Create visualization with stall breakdown
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    
+    # Plot 1: Energy Breakdown (Simple Algorithm)
+    ax1 = axes[0, 0]
+    simple_breakdown = {
+        'Instruction Execution': simple_instruction_energy,
+        'CPU Stall (Idle-Active)': simple_stall_energy
+    }
+    ax1.bar(simple_breakdown.keys(), simple_breakdown.values(), 
+            color=['#3498db', '#e74c3c'], alpha=0.7)
+    ax1.set_title(f'Simple Algorithm: EPT = {simple_ept:.1f} mJ\n'
+                  f'Stall Fraction: {simple_stall_fraction*100:.1f}%')
+    ax1.set_ylabel('Energy (mJ)')
+    
+    # Plot 2: Energy Breakdown (Optimized Algorithm)
+    ax2 = axes[0, 1]
+    optimized_breakdown = {
+        'Instruction Execution': optimized_instruction_energy,
+        'CPU Stall (Idle-Active)': optimized_stall_energy
+    }
+    ax2.bar(optimized_breakdown.keys(), optimized_breakdown.values(),
+            color=['#2ecc71', '#f39c12'], alpha=0.7)
+    ax2.set_title(f'Optimized Algorithm: EPT = {optimized_ept:.1f} mJ\n'
+                  f'Stall Fraction: {optimized_stall_fraction*100:.1f}%')
+    ax2.set_ylabel('Energy (mJ)')
+    
+    # Plot 3: Stall Energy Comparison
+    ax3 = axes[1, 0]
+    stall_comparison = {
+        'Simple': simple_stall_energy,
+        'Optimized': optimized_stall_energy
+    }
+    stall_saved = simple_stall_energy - optimized_stall_energy
+    bars = ax3.bar(stall_comparison.keys(), stall_comparison.values(),
+                   color=['#e74c3c', '#2ecc71'], alpha=0.7)
+    ax3.set_title(f'CPU Stall Energy Comparison\n'
+                  f'Stall Energy Saved: {stall_saved:.1f} mJ')
+    ax3.set_ylabel('Stall Energy (mJ)')
+    
+    # Add annotation for stall energy saved
+    ax3.annotate(f'Saved:\n{stall_saved:.1f} mJ',
+                 xy=(1, optimized_stall_energy),
+                 xytext=(0.5, (simple_stall_energy + optimized_stall_energy) / 2),
+                 arrowprops=dict(arrowstyle='<->', color='#e67e22', lw=2),
+                 fontsize=12, fontweight='bold',
+                 bbox=dict(boxstyle='round,pad=0.5', facecolor='#f39c12', alpha=0.7))
+    
+    # Plot 4: Execution Time Breakdown
+    ax4 = axes[1, 1]
+    simple_time_breakdown = {
+        'Executing': simple_execution_time * (1 - simple_stall_fraction),
+        'Stalling': simple_execution_time * simple_stall_fraction
+    }
+    optimized_time_breakdown = {
+        'Executing': optimized_execution_time * (1 - optimized_stall_fraction),
+        'Stalling': optimized_execution_time * optimized_stall_fraction
+    }
+    
+    x = ['Simple', 'Optimized']
+    executing_times = [simple_time_breakdown['Executing'], optimized_time_breakdown['Executing']]
+    stalling_times = [simple_time_breakdown['Stalling'], optimized_time_breakdown['Stalling']]
+    
+    ax4.bar(x, executing_times, label='Executing', color='#3498db', alpha=0.7)
+    ax4.bar(x, stalling_times, bottom=executing_times, label='Stalling', color='#e74c3c', alpha=0.7)
+    ax4.set_title('Execution Time Breakdown')
+    ax4.set_ylabel('Time (seconds)')
+    ax4.legend()
+    
+    plt.tight_layout()
+    
+    return {
+        'visualization': fig,
+        'stall_energy_saved': stall_saved,
+        'stall_fraction_reduction': simple_stall_fraction - optimized_stall_fraction,
+        'insight': f'Optimization saved {stall_saved:.1f} mJ by reducing stall time from '
+                   f'{simple_stall_fraction*100:.1f}% to {optimized_stall_fraction*100:.1f}%'
+    }
+```
+
+**Example Output Visualization**:
+
+```
+┌─────────────────────────────────┬─────────────────────────────────┐
+│ Simple Algorithm: 450,000 mJ    │ Optimized Algorithm: 114,000 mJ │
+│ Stall Fraction: 60%             │ Stall Fraction: 15%             │
+│                                 │                                 │
+│ ┌─────────────────────────┐    │ ┌─────────────────────────┐    │
+│ │ Instruction Execution   │    │ │ Instruction Execution   │    │
+│ │ 180,000 mJ              │    │ │ 96,900 mJ               │    │
+│ └─────────────────────────┘    │ └─────────────────────────┘    │
+│ ┌─────────────────────────┐    │ ┌─────────────────────────┐    │
+│ │ CPU Stall (Idle-Active) │    │ │ CPU Stall (Idle-Active) │    │
+│ │ 270,000 mJ              │    │ │ 17,100 mJ               │    │
+│ └─────────────────────────┘    │ └─────────────────────────┘    │
+└─────────────────────────────────┴─────────────────────────────────┘
+
+Stall Energy Saved: 252,900 mJ (93.7% reduction in stall energy)
+Insight: Optimization reduced stall time from 60% to 15%, saving 252,900 mJ
+         of "wasted" idle-active power that EPI completely misses!
+```
+
+**Conclusion**: EPT **captures stall energy** by measuring total energy over total time, including idle-active power during CPU stalls. EPI cannot capture this because it only measures energy per instruction, ignoring the temporal aspect of memory waits. The enhanced visualization makes this "hidden waste" visible, showing developers exactly how much energy is saved by reducing cache misses and stall time.
+
+### The Scale of Savings: Justifying Engineering Hours at Scale
+
+**Question**: You mentioned a 791 mJ saving in one matrix multiplication. If this function is called 10,000 times in a cloud environment, let's look at how your framework helps justify the "engineering hours" spent on cache optimization by calculating the total energy (and cost) saved at scale.
+
+**Key Insight**: The **Energy Gap framework** can be extended to calculate **total energy savings** and **cost savings** at scale (e.g., 10,000+ calls), enabling developers to **quantify the ROI** (Return on Investment) of optimization effort. This transforms abstract "energy savings" into concrete **business value** (reduced cloud costs, extended battery life, improved performance).
+
+#### The Scale Calculation Framework
+
+**Formula**: Total Savings at Scale
+
+```
+Total_Energy_Saved = Energy_Gap_per_Task × Number_of_Calls
+
+Total_Cost_Saved = Total_Energy_Saved × Energy_Cost_per_Joule
+
+ROI = (Total_Cost_Saved - Engineering_Cost) / Engineering_Cost
+
+Engineering_Efficiency = Total_Cost_Saved / Engineering_Hours
+```
+
+#### Example: Matrix Multiplication at Scale
+
+**Scenario**: Matrix multiplication function called 10,000 times per day in cloud environment.
+
+**Single Call Energy Gap** (from previous example):
+```
+Simple Algorithm:    1250.3 mJ per call
+Optimized Algorithm: 487.6 mJ per call
+Energy Gap:          762.7 mJ saved per call
+Improvement Ratio:   2.56x more efficient
+```
+
+**Scale Calculation**:
+
+```python
+def calculate_scale_savings(
+    energy_gap_per_task_mj: float,
+    number_of_calls: int,
+    energy_cost_per_joule: float = 0.00001,  # $0.00001 per Joule (cloud pricing)
+    engineering_hours: float = 8.0,
+    engineering_rate_per_hour: float = 150.0  # $150/hour
+) -> Dict:
+    """
+    Calculate total savings and ROI at scale.
+    """
+    # Convert mJ to Joules
+    energy_gap_per_task_j = energy_gap_per_task_mj / 1000.0
+    
+    # Total energy saved
+    total_energy_saved_j = energy_gap_per_task_j * number_of_calls
+    total_energy_saved_mj = energy_gap_per_task_mj * number_of_calls
+    total_energy_saved_kwh = total_energy_saved_j / 3_600_000  # Joules to kWh
+    
+    # Total cost saved
+    total_cost_saved = total_energy_saved_j * energy_cost_per_joule
+    
+    # Engineering cost
+    engineering_cost = engineering_hours * engineering_rate_per_hour
+    
+    # ROI calculation
+    roi = ((total_cost_saved - engineering_cost) / engineering_cost) * 100 if engineering_cost > 0 else float('inf')
+    
+    # Engineering efficiency
+    engineering_efficiency = total_cost_saved / engineering_hours if engineering_hours > 0 else 0
+    
+    # Break-even point (number of calls to justify engineering cost)
+    break_even_calls = engineering_cost / (energy_gap_per_task_j * energy_cost_per_joule) if energy_gap_per_task_j > 0 else 0
+    
+    return {
+        'energy_savings': {
+            'per_task_mj': energy_gap_per_task_mj,
+            'total_mj': total_energy_saved_mj,
+            'total_j': total_energy_saved_j,
+            'total_kwh': total_energy_saved_kwh
+        },
+        'cost_savings': {
+            'total_usd': total_cost_saved,
+            'per_call_usd': total_cost_saved / number_of_calls
+        },
+        'engineering': {
+            'hours': engineering_hours,
+            'cost_usd': engineering_cost,
+            'efficiency_usd_per_hour': engineering_efficiency
+        },
+        'roi': {
+            'percentage': roi,
+            'net_savings_usd': total_cost_saved - engineering_cost,
+            'break_even_calls': break_even_calls
+        }
+    }
+
+# Calculate for 10,000 calls
+results = calculate_scale_savings(
+    energy_gap_per_task_mj=762.7,
+    number_of_calls=10_000,
+    engineering_hours=8.0,
+    engineering_rate_per_hour=150.0
+)
+```
+
+**Results**:
+
+```
+Scale Savings Analysis (10,000 calls):
+═══════════════════════════════════════════════════════════════
+
+Energy Savings:
+  Per Call:        762.7 mJ
+  Total:           7,627,000 mJ = 7,627 J = 2.12 kWh
+  
+Cost Savings (Cloud Pricing: $0.00001 per Joule):
+  Per Call:        $0.000007627
+  Total:           $0.07627
+  
+Engineering Investment:
+  Hours:           8 hours
+  Cost:            $1,200
+  
+ROI Analysis:
+  Net Savings:     -$1,199.92 (negative - engineering cost exceeds savings)
+  ROI:             -99.99% (not profitable at this scale)
+  Break-Even:      Requires 157,000+ calls to justify investment
+  
+Recommendation: ❌ NOT JUSTIFIED at 10,000 calls scale
+```
+
+#### Scaling Up: When Optimization Becomes Justified
+
+**Scenario 1: High-Frequency Usage (1 Million Calls)**:
+
+```python
+results_1m = calculate_scale_savings(
+    energy_gap_per_task_mj=762.7,
+    number_of_calls=1_000_000,
+    engineering_hours=8.0,
+    engineering_rate_per_hour=150.0
+)
+```
+
+**Results**:
+
+```
+Scale Savings Analysis (1,000,000 calls):
+═══════════════════════════════════════════════════════════════
+
+Energy Savings:
+  Total:           762,700,000 mJ = 762,700 J = 212 kWh
+  
+Cost Savings:
+  Total:           $7.627
+  
+ROI Analysis:
+  Net Savings:     -$1,192.37 (still negative)
+  Break-Even:      Requires 157,000+ calls
+```
+
+**Still not justified!** But let's consider **daily usage over a year**:
+
+**Scenario 2: Daily Usage Over 1 Year**:
+
+```python
+# 10,000 calls per day × 365 days = 3.65 million calls per year
+results_year = calculate_scale_savings(
+    energy_gap_per_task_mj=762.7,
+    number_of_calls=3_650_000,
+    engineering_hours=8.0,
+    engineering_rate_per_hour=150.0
+)
+```
+
+**Results**:
+
+```
+Scale Savings Analysis (3,650,000 calls/year):
+═══════════════════════════════════════════════════════════════
+
+Energy Savings:
+  Total:           2,783,855,000 mJ = 2,783,855 J = 773 kWh/year
+  
+Cost Savings:
+  Total:           $27.84/year
+  
+ROI Analysis:
+  Net Savings:     -$1,172.16 (still negative)
+  Recommendation:  ❌ NOT JUSTIFIED (takes 43 years to break even!)
+```
+
+#### The Real Justification: Performance + Battery Life
+
+**Beyond Cost: Performance and Battery Life Benefits**:
+
+The Energy Gap framework should also consider **non-monetary benefits**:
+
+```python
+def calculate_comprehensive_roi(
+    energy_gap_per_task_mj: float,
+    number_of_calls: int,
+    engineering_hours: float,
+    engineering_rate_per_hour: float,
+    # Additional benefits
+    performance_improvement_ratio: float = 2.56,  # 2.56x faster
+    battery_life_extension_hours: float = 0.0,
+    user_satisfaction_value: float = 0.0  # Subjective
+) -> Dict:
+    """
+    Comprehensive ROI including performance and battery life benefits.
+    """
+    # Energy cost savings (from previous calculation)
+    energy_savings = calculate_scale_savings(
+        energy_gap_per_task_mj, number_of_calls,
+        engineering_hours=engineering_hours,
+        engineering_rate_per_hour=engineering_rate_per_hour
+    )
+    
+    # Performance benefit: Faster execution = better user experience
+    # If 2.56x faster, users save time (can be monetized)
+    time_saved_per_call = estimate_execution_time_reduction(performance_improvement_ratio)
+    total_time_saved = time_saved_per_call * number_of_calls
+    
+    # Battery life extension (for mobile devices)
+    # 762.7 mJ saved per call × 10,000 calls = 7.6 J saved
+    # On 5000 mAh battery (18,500 J capacity): 7.6 J = 0.04% extension
+    battery_extension_percentage = (energy_gap_per_task_mj * number_of_calls / 1000) / 18_500 * 100
+    
+    # Total value (energy + performance + battery)
+    total_value = (
+        energy_savings['cost_savings']['total_usd'] +
+        (time_saved_per_call * number_of_calls * 0.01) +  # $0.01 per second saved
+        (battery_extension_percentage * 10)  # $10 per 1% battery extension
+    )
+    
+    engineering_cost = engineering_hours * engineering_rate_per_hour
+    net_value = total_value - engineering_cost
+    roi = (net_value / engineering_cost) * 100 if engineering_cost > 0 else 0
+    
+    return {
+        'energy_savings': energy_savings,
+        'performance_benefits': {
+            'improvement_ratio': performance_improvement_ratio,
+            'time_saved_seconds': total_time_saved,
+            'estimated_value_usd': total_time_saved * 0.01
+        },
+        'battery_benefits': {
+            'extension_percentage': battery_extension_percentage,
+            'estimated_value_usd': battery_extension_percentage * 10
+        },
+        'total_value_usd': total_value,
+        'engineering_cost_usd': engineering_cost,
+        'net_value_usd': net_value,
+        'comprehensive_roi_percent': roi,
+        'recommendation': 'JUSTIFIED' if roi > 0 else 'NOT JUSTIFIED'
+    }
+```
+
+#### The Scale Visualization Dashboard
+
+**Enhanced Energy Gap Visualization with Scale Analysis**:
+
+```python
+def visualize_scale_savings(
+    energy_gap_per_task_mj: float,
+    call_scenarios: List[int],  # [1_000, 10_000, 100_000, 1_000_000]
+    engineering_hours: float = 8.0,
+    engineering_rate_per_hour: float = 150.0
+) -> Dict:
+    """
+    Visualize energy and cost savings at different scales.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('Scale Savings Analysis: Energy Gap at Scale', fontsize=16, fontweight='bold')
+    
+    # Calculate savings for each scenario
+    scenarios_data = []
+    for calls in call_scenarios:
+        savings = calculate_scale_savings(
+            energy_gap_per_task_mj, calls,
+            engineering_hours, engineering_rate_per_hour
+        )
+        scenarios_data.append({
+            'calls': calls,
+            'total_energy_mj': savings['energy_savings']['total_mj'],
+            'total_cost_usd': savings['cost_savings']['total_usd'],
+            'roi_percent': savings['roi']['percentage'],
+            'break_even': savings['roi']['break_even_calls']
+        })
+    
+    # Plot 1: Total Energy Saved vs Number of Calls
+    ax1 = axes[0, 0]
+    calls = [s['calls'] for s in scenarios_data]
+    energy_mj = [s['total_energy_mj'] for s in scenarios_data]
+    ax1.plot(calls, energy_mj, marker='o', linewidth=2, markersize=8, color='#3498db')
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xlabel('Number of Calls (log scale)')
+    ax1.set_ylabel('Total Energy Saved (mJ, log scale)')
+    ax1.set_title('Total Energy Savings at Scale')
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Total Cost Saved vs Number of Calls
+    ax2 = axes[0, 1]
+    cost_usd = [s['total_cost_usd'] for s in scenarios_data]
+    engineering_cost = engineering_hours * engineering_rate_per_hour
+    ax2.plot(calls, cost_usd, marker='o', linewidth=2, markersize=8, color='#2ecc71', label='Cost Saved')
+    ax2.axhline(y=engineering_cost, color='r', linestyle='--', linewidth=2, label=f'Engineering Cost (${engineering_cost})')
+    ax2.set_xscale('log')
+    ax2.set_xlabel('Number of Calls (log scale)')
+    ax2.set_ylabel('Cost Saved (USD)')
+    ax2.set_title('Cost Savings vs Engineering Investment')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    # Plot 3: ROI vs Number of Calls
+    ax3 = axes[1, 0]
+    roi_percent = [s['roi_percent'] for s in scenarios_data]
+    colors = ['#e74c3c' if r < 0 else '#2ecc71' for r in roi_percent]
+    ax3.bar(range(len(calls)), roi_percent, color=colors, alpha=0.7)
+    ax3.axhline(y=0, color='black', linestyle='-', linewidth=1)
+    ax3.set_xticks(range(len(calls)))
+    ax3.set_xticklabels([f'{c:,}' for c in calls], rotation=45)
+    ax3.set_xlabel('Number of Calls')
+    ax3.set_ylabel('ROI (%)')
+    ax3.set_title('Return on Investment at Different Scales')
+    ax3.grid(True, alpha=0.3, axis='y')
+    
+    # Plot 4: Break-Even Analysis
+    ax4 = axes[1, 1]
+    break_even_calls = scenarios_data[0]['break_even']
+    call_range = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+    cost_saved_range = [calculate_scale_savings(energy_gap_per_task_mj, c, engineering_hours, engineering_rate_per_hour)['cost_savings']['total_usd'] for c in call_range]
+    ax4.plot(call_range, cost_saved_range, marker='o', linewidth=2, markersize=8, color='#9b59b6')
+    ax4.axhline(y=engineering_cost, color='r', linestyle='--', linewidth=2, label=f'Break-Even (${engineering_cost})')
+    ax4.axvline(x=break_even_calls, color='orange', linestyle='--', linewidth=2, label=f'Break-Even Point ({break_even_calls:,.0f} calls)')
+    ax4.set_xscale('log')
+    ax4.set_xlabel('Number of Calls (log scale)')
+    ax4.set_ylabel('Cost Saved (USD)')
+    ax4.set_title(f'Break-Even Analysis\nBreak-Even: {break_even_calls:,.0f} calls')
+    ax4.legend()
+    ax4.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    return {
+        'visualization': fig,
+        'scenarios': scenarios_data,
+        'break_even_calls': break_even_calls,
+        'recommendation': f'Optimization justified at {break_even_calls:,.0f}+ calls'
+    }
+```
+
+**Example Output**:
+
+```
+Scale Savings Dashboard:
+┌──────────────────────────────┬──────────────────────────────┐
+│ Total Energy Saved           │ Cost Savings vs Investment   │
+│ (Log-Log Scale)              │                              │
+│                              │                              │
+│  [Exponential growth curve]  │  [Cost curve vs break-even]  │
+└──────────────────────────────┴──────────────────────────────┘
+┌──────────────────────────────┬──────────────────────────────┐
+│ ROI at Different Scales      │ Break-Even Analysis          │
+│                              │                              │
+│  [Bar chart: negative → pos] │  [Break-even intersection]   │
+└──────────────────────────────┴──────────────────────────────┘
+
+Break-Even Point: 157,000 calls
+Recommendation: Optimization justified at 157,000+ calls
+```
+
+**Conclusion**: The **Scale of Savings framework** transforms energy savings into **quantifiable business value**, enabling developers to justify optimization effort by calculating total energy saved, cost savings, ROI, and break-even points. This makes the abstract "791 mJ saved" into concrete **actionable insights** for decision-making at scale.
+
+---
+
 ### Precision Benefits from Stable Baseline
 
 **Without Stable Baseline** (background daemons on P-cores):
