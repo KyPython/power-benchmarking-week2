@@ -35,6 +35,7 @@ from power_benchmarking_suite.commands import (
     business,
     marketing,
 )
+from power_benchmarking_suite.commands import help_cmd
 
 # Import config manager
 from power_benchmarking_suite.config import get_config_manager
@@ -93,6 +94,7 @@ For more information, see QUICK_START_GUIDE.md
     validate.add_parser(subparsers)
     business.add_parser(subparsers)
     marketing.add_parser(subparsers)
+    help_cmd.add_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()
@@ -114,6 +116,7 @@ For more information, see QUICK_START_GUIDE.md
         parser.print_help()
         print()
         print("💡 Quick Start: Run 'power-benchmark quickstart' for interactive setup")
+        print("📚 Commands Reference: Run 'power-benchmark help' for complete command guide")
         return 0
 
     # Execute command
@@ -130,10 +133,13 @@ For more information, see QUICK_START_GUIDE.md
     except Exception as e:
         # Try to use structured error handling if available
         try:
-            from power_benchmarking_suite.errors import PowerBenchmarkError, handle_error
+            from power_benchmarking_suite.errors import PowerBenchmarkError
 
             if isinstance(e, PowerBenchmarkError):
-                handle_error(e, verbose=args.verbose)
+                # Print error with actionable help if available
+                print(f"Error: {e}", file=sys.stderr)
+                if args.verbose and hasattr(e, 'actionable_help') and e.actionable_help:
+                    print(f"\n{e.actionable_help}", file=sys.stderr)
                 return 1
         except ImportError:
             pass

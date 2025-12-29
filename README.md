@@ -29,6 +29,42 @@ pip install power-benchmarking-suite
 
 **See `QUICK_START_GUIDE.md` for a complete 1-2 hour walkthrough, or `INSTALLATION.md` for detailed installation instructions.**
 
+## 📚 Quick Command Reference
+
+**Don't want to memorize commands?** Run `power-benchmark help` anytime to see all available commands!
+
+| Command | Purpose | Sudo Required? |
+|---------|---------|----------------|
+| `power-benchmark validate` | System compatibility checks | No (for basic) |
+| `power-benchmark optimize` | Energy gap and thermal optimization | No |
+| `power-benchmark marketing` | Lead capture, email, README generation | No |
+| `power-benchmark monitor` | Real-time power monitoring | Yes |
+| `power-benchmark analyze` | Power consumption analysis | Yes (for apps) |
+| `power-benchmark config` | Configuration management | No |
+| `power-benchmark quickstart` | Interactive onboarding | No |
+| `power-benchmark business` | Business automation | No |
+| `power-benchmark help` | Show commands reference guide | No |
+
+**Quick Examples**:
+```bash
+# Show all commands
+power-benchmark help
+
+# System validation
+power-benchmark validate --verbose
+
+# Interactive setup
+power-benchmark quickstart
+
+# Real-time monitoring (30 seconds)
+sudo power-benchmark monitor --test 30
+
+# Generate Green README
+power-benchmark marketing readme
+```
+
+**📖 Full Reference**: See `COMMANDS_REFERENCE.md` for complete command documentation with examples and workflows.
+
 ### Basic Usage
 
 **New Unified CLI (Recommended):**
