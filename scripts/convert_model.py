@@ -15,9 +15,7 @@ traced_model = torch.jit.trace(torch_model, example_input)
 # 4. Convert to CoreML
 # We'll use 'mlprogram' which is the modern format for M2 chips
 model = ct.convert(
-    traced_model,
-    inputs=[ct.TensorType(shape=example_input.shape)],
-    convert_to="mlprogram" 
+    traced_model, inputs=[ct.TensorType(shape=example_input.shape)], convert_to="mlprogram"
 )
 
 # 5. Save it

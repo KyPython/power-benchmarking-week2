@@ -1,11 +1,32 @@
+# Production Dependencies (Required for runtime)
+# These are installed when users run: pip install power-benchmarking-suite
+
+# Core ML and data processing
 coremltools>=7.0
 numpy>=1.21.0
-pyserial>=3.5
 pandas>=1.3.0
 matplotlib>=3.4.0
+
+# Model conversion (PyTorch to CoreML)
 torch>=2.0.0
 torchvision>=0.15.0
+
+# System monitoring and hardware access
 psutil>=5.8.0
+pyserial>=3.5
+
+# UI and visualization
 rich>=13.0.0
+
+# Configuration
 pyyaml>=6.0
+
+# Business automation (optional features)
+resend>=2.0.0
+reportlab>=4.0.0
+jinja2>=3.1.0
+schedule>=1.2.0
+
+# Note: Development and testing dependencies are in requirements-dev.txt
+# Install with: pip install -r requirements-dev.txt
 

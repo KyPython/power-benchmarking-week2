@@ -1,0 +1,90 @@
+# Pre-commit hooks configuration
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: ['--line-length=100']
+        # Auto-fix on commit
+        stages: [commit]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=100', '--extend-ignore=E203,W503']
+        additional_dependencies: [flake8-docstrings]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        args: ['--ignore-missing-imports', '--no-strict-optional']
+        additional_dependencies: [types-all]
+
+  - repo: local
+    hooks:
+      - id: validate-srp
+        name: Validate SRP
+        entry: bash scripts/validate-srp.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: validate-logging
+        name: Validate Logging Integration
+        entry: bash scripts/validate-logging-integration.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: validate-dynamic-code
+        name: Validate Dynamic Code
+        entry: bash scripts/validate-dynamic-code.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: check-dependencies
+        name: Check Production vs Dev Dependencies
+        entry: python3 scripts/check_dependencies.py
+        language: system
+        pass_filenames: false
+        files: requirements\.txt$
+        always_run: false
+        description: "Prevents dev dependencies from leaking into requirements.txt"
+      
+      - id: verify-documentation
+        name: Verify Documentation Matches Codebase
+        entry: python3 scripts/verify_documentation_match.py
+        language: system
+        pass_filenames: false
+        files: (docs/.*\.md|power_benchmarking_suite/.*\.py|scripts/.*\.py)$
+        always_run: false
+        description: "Ensures documented features are actually implemented in code"
+      
+      - id: check-study-guide
+        name: Check Study Guide Update Status
+        entry: python3 scripts/check_study_guide_update.py --warn-days 30
+        language: system
+        pass_filenames: false
+        files: (docs/.*\.md|power_benchmarking_suite/.*\.py|scripts/.*\.py)$
+        always_run: false
+        description: "Ensures Product Study Guide is kept up to date for expert knowledge"
+

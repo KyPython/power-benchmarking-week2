@@ -21,7 +21,7 @@ class ANEGPUMonitor:
     """
     Monitors ANE and GPU power with statistical analysis.
     """
-    
+
     def __init__(self, sample_interval: int = 500):
         self.sample_interval = sample_interval
         self.ane_power_history = deque(maxlen=10000)
@@ -29,127 +29,119 @@ class ANEGPUMonitor:
         self.cpu_power_history = deque(maxlen=10000)
         self.total_power_history = deque(maxlen=10000)
         self.running = True
-    
+
     def parse_powermetrics_line(self, line: str) -> Optional[Dict[str, float]]:
         """Parse power values from powermetrics output line."""
         data = {}
-        
+
         # ANE Power
-        ane_match = re.search(r'ANE\s+Power[:\s]+([\d.]+)\s*mW', line, re.IGNORECASE)
+        ane_match = re.search(r"ANE\s+Power[:\s]+([\d.]+)\s*mW", line, re.IGNORECASE)
         if ane_match:
-            data['ane_power_mw'] = float(ane_match.group(1))
-        
+            data["ane_power_mw"] = float(ane_match.group(1))
+
         # GPU Power
-        gpu_match = re.search(r'GPU\s+Power[:\s]+([\d.]+)\s*mW', line, re.IGNORECASE)
+        gpu_match = re.search(r"GPU\s+Power[:\s]+([\d.]+)\s*mW", line, re.IGNORECASE)
         if gpu_match:
-            data['gpu_power_mw'] = float(gpu_match.group(1))
-        
+            data["gpu_power_mw"] = float(gpu_match.group(1))
+
         # CPU Power
-        cpu_match = re.search(r'(?:CPU|Package)\s+Power[:\s]+([\d.]+)\s*mW', line, re.IGNORECASE)
+        cpu_match = re.search(r"(?:CPU|Package)\s+Power[:\s]+([\d.]+)\s*mW", line, re.IGNORECASE)
         if cpu_match:
-            data['cpu_power_mw'] = float(cpu_match.group(1))
-        
+            data["cpu_power_mw"] = float(cpu_match.group(1))
+
         # Total Package Power
-        total_match = re.search(r'Total\s+Package\s+Power[:\s]+([\d.]+)\s*mW', line, re.IGNORECASE)
+        total_match = re.search(r"Total\s+Package\s+Power[:\s]+([\d.]+)\s*mW", line, re.IGNORECASE)
         if total_match:
-            data['total_power_mw'] = float(total_match.group(1))
-        
+            data["total_power_mw"] = float(total_match.group(1))
+
         return data if data else None
-    
+
     def collect_power_data(self, duration: int = 60) -> Dict[str, List[float]]:
         """
         Collect power data from powermetrics.
-        
+
         Args:
             duration: Collection duration in seconds
-        
+
         Returns:
             Dictionary with power arrays
         """
         print(f"📊 Collecting power data for {duration} seconds...")
         print("   Monitoring: ANE, GPU, CPU, Total Package")
         print()
-        
+
         cmd = [
-            'sudo', 'powermetrics',
-            '--samplers', 'cpu_power,gpu_power',
-            '-i', str(self.sample_interval),
-            '-n', str(int(duration * 1000 / self.sample_interval))
+            "sudo",
+            "powermetrics",
+            "--samplers",
+            "cpu_power,gpu_power",
+            "-i",
+            str(self.sample_interval),
+            "-n",
+            str(int(duration * 1000 / self.sample_interval)),
         ]
-        
+
         try:
             process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
-            
+
             output, error = process.communicate(timeout=duration + 10)
-            
+
             if error:
                 print(f"⚠️  powermetrics stderr: {error[:200]}")
-            
+
             # Parse all power values
             ane_values = []
             gpu_values = []
             cpu_values = []
             total_values = []
-            
-            for line in output.split('\n'):
+
+            for line in output.split("\n"):
                 data = self.parse_powermetrics_line(line)
                 if data:
-                    if 'ane_power_mw' in data:
-                        ane_values.append(data['ane_power_mw'])
-                    if 'gpu_power_mw' in data:
-                        gpu_values.append(data['gpu_power_mw'])
-                    if 'cpu_power_mw' in data:
-                        cpu_values.append(data['cpu_power_mw'])
-                    if 'total_power_mw' in data:
-                        total_values.append(data['total_power_mw'])
-            
-            return {
-                'ane': ane_values,
-                'gpu': gpu_values,
-                'cpu': cpu_values,
-                'total': total_values
-            }
-            
+                    if "ane_power_mw" in data:
+                        ane_values.append(data["ane_power_mw"])
+                    if "gpu_power_mw" in data:
+                        gpu_values.append(data["gpu_power_mw"])
+                    if "cpu_power_mw" in data:
+                        cpu_values.append(data["cpu_power_mw"])
+                    if "total_power_mw" in data:
+                        total_values.append(data["total_power_mw"])
+
+            return {"ane": ane_values, "gpu": gpu_values, "cpu": cpu_values, "total": total_values}
+
         except Exception as e:
             print(f"❌ Error collecting power data: {e}")
             return {}
-    
+
     def predict_thermal_throttling(
-        self,
-        burst_fraction: float,
-        mean_power: float,
-        max_power: float,
-        component: str = "ane"
+        self, burst_fraction: float, mean_power: float, max_power: float, component: str = "ane"
     ) -> Dict[str, any]:
         """
         Predict thermal throttling risk based on burst fraction and power consumption.
-        
+
         **Decoding Thermal Throttling: Why Burst Fraction > Mean Power**
-        
+
         **The Physics of Silicon Heat Buildup**:
-        
+
         1. **Heat Capacity & Thermal Mass**:
            - Silicon has thermal mass (takes time to heat up/cool down)
            - Rapid power spikes (bursts) create heat faster than it can dissipate
            - Mean power alone doesn't capture this - it averages out the spikes
-        
+
         2. **Burst Fraction Reveals Heat Generation Rate**:
            - High burst fraction (>50%) = frequent spikes = rapid heat generation
            - Even if mean is moderate, frequent spikes prevent cooling
            - Example: 2000 mW bursts every 500ms vs. steady 1500 mW
              → Bursts create more heat despite lower mean
-        
+
         3. **Thermal Time Constants**:
            - Heat buildup: ~100-500ms (fast)
            - Heat dissipation: ~1-5 seconds (slow)
            - Burst fraction captures the "duty cycle" of heat generation
            - Mean power misses the temporal pattern
-        
+
         4. **Why Mean Power Fails**:
            - Mean = (L × f) + (H × (1-f))
            - Two scenarios with same mean:
@@ -157,106 +149,106 @@ class ANEGPUMonitor:
              * Scenario B: 2000 mW bursts 40% of time (mean=800, burst=40%)
            - Scenario B will throttle (frequent spikes), Scenario A won't
            - Mean can't distinguish these!
-        
+
         5. **Burst Fraction as Heat Generation Rate**:
            - Burst fraction = frequency of high-power events
            - High frequency = less time for cooling between spikes
            - Thermal accumulation = heat_generated - heat_dissipated
            - Burst fraction directly relates to heat_generated rate
-        
+
         **Silicon Thermal Constants: Calculating the Cooling Threshold**
-        
+
         **The Cooling Threshold**: The exact duty cycle (burst fraction) where the Mac
         can no longer stay at peak frequency due to thermal accumulation.
-        
+
         **Thermal Math**:
         - Heat buildup time: τ_build = 100-500ms (fast)
         - Heat dissipation time: τ_dissipate = 1-5 seconds (slow)
         - Cooling threshold: f_cool = τ_build / (τ_build + τ_dissipate)
-        
+
         **Example Calculation**:
         - τ_build = 300ms (typical for ANE)
         - τ_dissipate = 2 seconds
         - f_cool = 300ms / (300ms + 2000ms) = 0.13 (13% burst fraction)
         - If burst fraction > 13%, heat accumulates faster than it can dissipate
         - Result: Thermal throttling occurs
-        
+
         **Why Burst Fraction Determines Cooling Threshold**:
         - Burst fraction = duty cycle of high-power events
         - If bursts occur more frequently than cooling time:
           → Heat accumulates → Temperature rises → Throttling
         - If bursts occur less frequently than cooling time:
           → Heat dissipates between bursts → No throttling
-        
+
         **Prediction Logic**:
         1. Burst fraction > 50% = frequent spikes (high thermal load)
         2. Mean power > 80% of max = sustained high power
         3. Both conditions = high throttling risk
         4. Cooling threshold = calculated from thermal constants
-        
+
         Args:
             burst_fraction: Fraction of time in high-power bursts (0.0 to 1.0)
             mean_power: Mean power consumption (mW)
             max_power: Maximum observed power (mW)
             component: Component name (ane, gpu, cpu)
-        
+
         Returns:
             Dictionary with thermal throttling prediction
         """
         # Thermal thresholds (empirical, component-specific)
         thermal_thresholds = {
-            'ane': {
-                'max_sustained': 2000.0,  # mW - ANE max sustained power
-                'burst_risk_threshold': 0.50,  # 50% burst fraction
-                'power_risk_threshold': 0.80,  # 80% of max power
+            "ane": {
+                "max_sustained": 2000.0,  # mW - ANE max sustained power
+                "burst_risk_threshold": 0.50,  # 50% burst fraction
+                "power_risk_threshold": 0.80,  # 80% of max power
             },
-            'gpu': {
-                'max_sustained': 3500.0,  # mW - GPU max sustained power
-                'burst_risk_threshold': 0.50,
-                'power_risk_threshold': 0.80,
+            "gpu": {
+                "max_sustained": 3500.0,  # mW - GPU max sustained power
+                "burst_risk_threshold": 0.50,
+                "power_risk_threshold": 0.80,
             },
-            'cpu': {
-                'max_sustained': 4000.0,  # mW - CPU max sustained power
-                'burst_risk_threshold': 0.50,
-                'power_risk_threshold': 0.80,
-            }
+            "cpu": {
+                "max_sustained": 4000.0,  # mW - CPU max sustained power
+                "burst_risk_threshold": 0.50,
+                "power_risk_threshold": 0.80,
+            },
         }
-        
-        thresholds = thermal_thresholds.get(component.lower(), thermal_thresholds['ane'])
-        
+
+        thresholds = thermal_thresholds.get(component.lower(), thermal_thresholds["ane"])
+
         # Calculate Cooling Threshold based on thermal constants
         # Component-specific thermal time constants (empirical)
         thermal_constants = {
-            'ane': {
-                'heat_build_ms': 300,      # ANE heats up in ~300ms
-                'heat_dissipate_ms': 2000, # ANE cools in ~2 seconds
+            "ane": {
+                "heat_build_ms": 300,  # ANE heats up in ~300ms
+                "heat_dissipate_ms": 2000,  # ANE cools in ~2 seconds
             },
-            'gpu': {
-                'heat_build_ms': 500,      # GPU heats up in ~500ms
-                'heat_dissipate_ms': 3000, # GPU cools in ~3 seconds
+            "gpu": {
+                "heat_build_ms": 500,  # GPU heats up in ~500ms
+                "heat_dissipate_ms": 3000,  # GPU cools in ~3 seconds
             },
-            'cpu': {
-                'heat_build_ms': 400,      # CPU heats up in ~400ms
-                'heat_dissipate_ms': 2500, # CPU cools in ~2.5 seconds
-            }
+            "cpu": {
+                "heat_build_ms": 400,  # CPU heats up in ~400ms
+                "heat_dissipate_ms": 2500,  # CPU cools in ~2.5 seconds
+            },
         }
-        
-        constants = thermal_constants.get(component.lower(), thermal_constants['ane'])
-        heat_build = constants['heat_build_ms']
-        heat_dissipate = constants['heat_dissipate_ms']
-        
+
+        constants = thermal_constants.get(component.lower(), thermal_constants["ane"])
+        heat_build = constants["heat_build_ms"]
+        heat_dissipate = constants["heat_dissipate_ms"]
+
         # Cooling threshold: f_cool = τ_build / (τ_build + τ_dissipate)
         cooling_threshold = heat_build / (heat_build + heat_dissipate)
-        
+
         # Check if burst fraction exceeds cooling threshold
         exceeds_cooling_threshold = burst_fraction > cooling_threshold
-        
+
         # Calculate risk factors
-        burst_risk = burst_fraction > thresholds['burst_risk_threshold']
+        burst_risk = burst_fraction > thresholds["burst_risk_threshold"]
         power_ratio = mean_power / max_power if max_power > 0 else 0.0
-        power_risk = power_ratio > thresholds['power_risk_threshold']
-        sustained_risk = mean_power > thresholds['max_sustained']
-        
+        power_risk = power_ratio > thresholds["power_risk_threshold"]
+        sustained_risk = mean_power > thresholds["max_sustained"]
+
         # Overall risk assessment
         risk_score = 0
         if exceeds_cooling_threshold:
@@ -267,7 +259,7 @@ class ANEGPUMonitor:
             risk_score += 1
         if sustained_risk:
             risk_score += 2  # Sustained high power is most critical
-        
+
         if risk_score >= 3:
             throttling_risk = "HIGH"
             recommendation = (
@@ -286,90 +278,100 @@ class ANEGPUMonitor:
                 f"✅ LOW thermal throttling risk. "
                 f"Current power profile is within safe thermal limits."
             )
-        
+
         return {
-            'throttling_risk': throttling_risk,
-            'risk_score': risk_score,
-            'burst_fraction': burst_fraction,
-            'burst_risk': burst_risk,
-            'mean_power': mean_power,
-            'max_power': max_power,
-            'power_ratio': power_ratio,
-            'power_risk': power_risk,
-            'sustained_risk': sustained_risk,
-            'thermal_threshold': thresholds['max_sustained'],
-            'cooling_threshold': cooling_threshold,
-            'cooling_threshold_percent': cooling_threshold * 100,
-            'exceeds_cooling_threshold': exceeds_cooling_threshold,
-            'thermal_constants': {
-                'heat_build_ms': heat_build,
-                'heat_dissipate_ms': heat_dissipate,
-                'formula': f'Cooling Threshold = {heat_build}ms / ({heat_build}ms + {heat_dissipate}ms) = {cooling_threshold*100:.1f}%'
+            "throttling_risk": throttling_risk,
+            "risk_score": risk_score,
+            "burst_fraction": burst_fraction,
+            "burst_risk": burst_risk,
+            "mean_power": mean_power,
+            "max_power": max_power,
+            "power_ratio": power_ratio,
+            "power_risk": power_risk,
+            "sustained_risk": sustained_risk,
+            "thermal_threshold": thresholds["max_sustained"],
+            "cooling_threshold": cooling_threshold,
+            "cooling_threshold_percent": cooling_threshold * 100,
+            "exceeds_cooling_threshold": exceeds_cooling_threshold,
+            "thermal_constants": {
+                "heat_build_ms": heat_build,
+                "heat_dissipate_ms": heat_dissipate,
+                "formula": f"Cooling Threshold = {heat_build}ms / ({heat_build}ms + {heat_dissipate}ms) = {cooling_threshold*100:.1f}%",
             },
-            'recommendation': recommendation,
-            'component': component
+            "recommendation": recommendation,
+            "component": component,
         }
-    
-    def calculate_skewness(self, values: List[float], component: str = "unknown") -> Dict[str, float]:
+
+    def calculate_skewness(
+        self, values: List[float], component: str = "unknown"
+    ) -> Dict[str, float]:
         """
         Calculate skewness statistics (mean, median, divergence).
-        
+
         The formula Mean = (L × f) + (H × (1-f)) works universally across
         all Apple Silicon accelerators (CPU, ANE, GPU) because:
-        
+
         1. **Unified Power Management**: Apple uses the same power management
            architecture across all accelerators - they all have idle states (L)
            and active states (H), with transitions between them.
-        
+
         2. **Statistical Universality**: The formula is a mathematical property
            of bimodal distributions, independent of the underlying hardware. Whether
            it's CPU cores, Neural Engine, or GPU, if there are two power states
            (low and high), the mean will be a weighted average.
-        
+
         3. **Apple's Design Philosophy**: All accelerators follow the same
            efficiency pattern - they idle when not in use (low power) and ramp up
            when active (high power). The "drop fraction" (f) represents the
            percentage of time spent in idle state.
-        
+
         Args:
             values: Power values to analyze
             component: Component name (for interpretation)
-        
+
         Returns:
             Dictionary with skewness metrics
         """
         if not values or len(values) < 10:
             return {}
-        
+
         mean = statistics.mean(values)
         median = statistics.median(values)
-        
+
         if median == 0:
             divergence_pct = 0.0
         else:
             divergence_pct = abs(mean - median) / median * 100
-        
+
         # Determine skew direction
         if mean < median:
             skew_direction = "left-skewed"
             if component.lower() == "ane":
-                skew_interpretation = "ANE idle periods between inference batches (Apple's unified power management)"
+                skew_interpretation = (
+                    "ANE idle periods between inference batches (Apple's unified power management)"
+                )
             elif component.lower() == "gpu":
-                skew_interpretation = "GPU idle periods between render frames (Apple's unified power management)"
+                skew_interpretation = (
+                    "GPU idle periods between render frames (Apple's unified power management)"
+                )
             else:
                 skew_interpretation = "Background tasks reducing power (e.g., idle periods)"
         elif mean > median:
             skew_direction = "right-skewed"
             if component.lower() == "ane":
-                skew_interpretation = "ANE inference spikes (burst workloads, Apple's unified power management)"
+                skew_interpretation = (
+                    "ANE inference spikes (burst workloads, Apple's unified power management)"
+                )
             elif component.lower() == "gpu":
-                skew_interpretation = "GPU render spikes (burst workloads, Apple's unified power management)"
+                skew_interpretation = (
+                    "GPU render spikes (burst workloads, Apple's unified power management)"
+                )
             else:
                 skew_interpretation = "Burst workloads increasing power (e.g., inference spikes)"
         else:
             skew_direction = "normal"
             skew_interpretation = "Stable workload (consistent power consumption)"
-        
+
         # Estimate drop fraction (for left-skewed) or burst fraction (for right-skewed)
         if mean < median and len(values) > 0:
             # Left-skewed: calculate drop fraction
@@ -397,70 +399,70 @@ class ANEGPUMonitor:
         else:
             drop_fraction = 0.0
             burst_fraction = None
-        
+
         result = {
-            'mean': mean,
-            'median': median,
-            'divergence_pct': divergence_pct,
-            'skew_direction': skew_direction,
-            'skew_interpretation': skew_interpretation,
-            'drop_fraction': drop_fraction,
-            'burst_fraction': burst_fraction,
-            'min': min(values),
-            'max': max(values),
-            'std': statistics.stdev(values) if len(values) > 1 else 0.0,
-            'samples': len(values),
-            'universality_note': (
+            "mean": mean,
+            "median": median,
+            "divergence_pct": divergence_pct,
+            "skew_direction": skew_direction,
+            "skew_interpretation": skew_interpretation,
+            "drop_fraction": drop_fraction,
+            "burst_fraction": burst_fraction,
+            "min": min(values),
+            "max": max(values),
+            "std": statistics.stdev(values) if len(values) > 1 else 0.0,
+            "samples": len(values),
+            "universality_note": (
                 "Formula Mean = (L × f) + (H × (1-f)) works universally because "
                 "Apple uses unified power management across all accelerators. "
                 "All components (CPU, ANE, GPU) follow the same idle/active pattern."
-            )
+            ),
         }
-        
+
         # Add thermal throttling prediction if burst fraction available
         if burst_fraction is not None:
             thermal_prediction = self.predict_thermal_throttling(
                 burst_fraction, mean, max(values), component
             )
-            result['thermal_prediction'] = thermal_prediction
-        
+            result["thermal_prediction"] = thermal_prediction
+
         return result
-    
+
     def calculate_attribution_ratio(
         self,
         component_values: List[float],
         total_values: List[float],
-        baseline: Optional[float] = None
+        baseline: Optional[float] = None,
     ) -> Dict[str, float]:
         """
         Calculate attribution ratio for a component (ANE/GPU).
-        
+
         Args:
             component_values: Component power values
             total_values: Total package power values
             baseline: Baseline power (optional, for delta calculation)
-        
+
         Returns:
             Dictionary with attribution metrics
         """
         if not component_values or not total_values:
             return {}
-        
+
         # Align arrays (take minimum length)
         min_len = min(len(component_values), len(total_values))
         component_aligned = component_values[:min_len]
         total_aligned = total_values[:min_len]
-        
+
         # Calculate component contribution
         component_mean = statistics.mean(component_aligned)
         total_mean = statistics.mean(total_aligned)
-        
+
         # Attribution ratio (component / total)
         if total_mean > 0:
             attribution_ratio = (component_mean / total_mean) * 100
         else:
             attribution_ratio = 0.0
-        
+
         # Delta attribution (if baseline provided)
         if baseline is not None:
             component_delta = component_mean - baseline
@@ -471,205 +473,211 @@ class ANEGPUMonitor:
                 delta_attribution = 0.0
         else:
             delta_attribution = None
-        
+
         return {
-            'component_mean_mw': component_mean,
-            'total_mean_mw': total_mean,
-            'attribution_ratio_pct': attribution_ratio,
-            'delta_attribution_pct': delta_attribution,
-            'samples': min_len
+            "component_mean_mw": component_mean,
+            "total_mean_mw": total_mean,
+            "attribution_ratio_pct": attribution_ratio,
+            "delta_attribution_pct": delta_attribution,
+            "samples": min_len,
         }
-    
+
     def analyze_power_data(self, power_data: Dict[str, List[float]]) -> Dict:
         """
         Analyze power data with skewness and attribution.
-        
+
         Returns:
             Complete analysis dictionary
         """
         analysis = {
-            'timestamp': datetime.now().isoformat(),
-            'ane': {},
-            'gpu': {},
-            'cpu': {},
-            'total': {},
-            'attribution': {}
+            "timestamp": datetime.now().isoformat(),
+            "ane": {},
+            "gpu": {},
+            "cpu": {},
+            "total": {},
+            "attribution": {},
         }
-        
+
         # Skewness analysis for each component
-        for component in ['ane', 'gpu', 'cpu', 'total']:
+        for component in ["ane", "gpu", "cpu", "total"]:
             if component in power_data and power_data[component]:
-                analysis[component] = self.calculate_skewness(power_data[component], component=component)
-        
+                analysis[component] = self.calculate_skewness(
+                    power_data[component], component=component
+                )
+
         # Attribution analysis
-        if 'total' in power_data and power_data['total']:
-            total_values = power_data['total']
-            
+        if "total" in power_data and power_data["total"]:
+            total_values = power_data["total"]
+
             # ANE attribution
-            if 'ane' in power_data and power_data['ane']:
-                ane_baseline = min(power_data['ane']) if power_data['ane'] else 0.0
-                analysis['attribution']['ane'] = self.calculate_attribution_ratio(
-                    power_data['ane'],
-                    total_values,
-                    baseline=ane_baseline
+            if "ane" in power_data and power_data["ane"]:
+                ane_baseline = min(power_data["ane"]) if power_data["ane"] else 0.0
+                analysis["attribution"]["ane"] = self.calculate_attribution_ratio(
+                    power_data["ane"], total_values, baseline=ane_baseline
                 )
-            
+
             # GPU attribution
-            if 'gpu' in power_data and power_data['gpu']:
-                gpu_baseline = min(power_data['gpu']) if power_data['gpu'] else 0.0
-                analysis['attribution']['gpu'] = self.calculate_attribution_ratio(
-                    power_data['gpu'],
-                    total_values,
-                    baseline=gpu_baseline
+            if "gpu" in power_data and power_data["gpu"]:
+                gpu_baseline = min(power_data["gpu"]) if power_data["gpu"] else 0.0
+                analysis["attribution"]["gpu"] = self.calculate_attribution_ratio(
+                    power_data["gpu"], total_values, baseline=gpu_baseline
                 )
-        
+
         return analysis
-    
+
     def print_analysis(self, analysis: Dict):
         """Print analysis results with thermal predictions."""
         print("\n" + "=" * 70)
         print("📊 ANE/GPU POWER ANALYSIS: Skewness & Attribution")
         print("=" * 70)
-        
+
         # Print thermal predictions if available
-        if 'ane' in analysis and 'thermal_prediction' in analysis['ane']:
-            thermal = analysis['ane']['thermal_prediction']
+        if "ane" in analysis and "thermal_prediction" in analysis["ane"]:
+            thermal = analysis["ane"]["thermal_prediction"]
             print(f"\n🌡️  ANE Thermal Throttling Risk: {thermal['throttling_risk']}")
             print(f"   {thermal['recommendation']}")
-            if thermal['burst_fraction']:
+            if thermal["burst_fraction"]:
                 print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
-            print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
-            if 'cooling_threshold' in thermal:
+            print(
+                f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW"
+            )
+            if "cooling_threshold" in thermal:
                 print(f"   Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
                 print(f"   {thermal['thermal_constants']['formula']}")
-                if thermal['exceeds_cooling_threshold']:
-                    print(f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation")
-        
-        if 'gpu' in analysis and 'thermal_prediction' in analysis['gpu']:
-            thermal = analysis['gpu']['thermal_prediction']
+                if thermal["exceeds_cooling_threshold"]:
+                    print(
+                        f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation"
+                    )
+
+        if "gpu" in analysis and "thermal_prediction" in analysis["gpu"]:
+            thermal = analysis["gpu"]["thermal_prediction"]
             print(f"\n🌡️  GPU Thermal Throttling Risk: {thermal['throttling_risk']}")
             print(f"   {thermal['recommendation']}")
-            if thermal['burst_fraction']:
+            if thermal["burst_fraction"]:
                 print(f"   Burst Fraction: {thermal['burst_fraction']*100:.1f}%")
-            print(f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW")
-            if 'cooling_threshold' in thermal:
+            print(
+                f"   Mean Power: {thermal['mean_power']:.1f} mW / Max: {thermal['max_power']:.1f} mW"
+            )
+            if "cooling_threshold" in thermal:
                 print(f"   Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
                 print(f"   {thermal['thermal_constants']['formula']}")
-                if thermal['exceeds_cooling_threshold']:
-                    print(f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation")
-        
+                if thermal["exceeds_cooling_threshold"]:
+                    print(
+                        f"   ⚠️  EXCEEDS COOLING THRESHOLD: Heat accumulates faster than dissipation"
+                    )
+
         print()
         print()
-        
+
         # Skewness Analysis
         print("📈 SKEWNESS ANALYSIS")
         print("-" * 70)
         print()
-        
-        for component in ['ane', 'gpu', 'cpu', 'total']:
+
+        for component in ["ane", "gpu", "cpu", "total"]:
             if component in analysis and analysis[component]:
                 stats = analysis[component]
                 component_name = component.upper()
-                
+
                 print(f"{component_name} Power:")
                 print(f"  Mean:     {stats['mean']:8.1f} mW")
                 print(f"  Median:   {stats['median']:8.1f} mW")
                 print(f"  Divergence: {stats['divergence_pct']:5.2f}%")
                 print(f"  Skew:     {stats['skew_direction']}")
                 print(f"  Interpretation: {stats['skew_interpretation']}")
-                
-                if stats.get('drop_fraction', 0) > 0:
+
+                if stats.get("drop_fraction", 0) > 0:
                     print(f"  Drop Fraction: {stats['drop_fraction']*100:.2f}%")
-                
-                if stats.get('burst_fraction'):
+
+                if stats.get("burst_fraction"):
                     print(f"  Burst Fraction: {stats['burst_fraction']*100:.2f}%")
-                
+
                 # Show thermal prediction if available
-                if 'thermal_prediction' in stats:
-                    thermal = stats['thermal_prediction']
+                if "thermal_prediction" in stats:
+                    thermal = stats["thermal_prediction"]
                     print(f"  🌡️  Thermal Risk: {thermal['throttling_risk']}")
-                    if 'cooling_threshold' in thermal:
+                    if "cooling_threshold" in thermal:
                         print(f"  Cooling Threshold: {thermal['cooling_threshold_percent']:.1f}%")
-                        if thermal['exceeds_cooling_threshold']:
+                        if thermal["exceeds_cooling_threshold"]:
                             print(f"  ⚠️  Exceeds cooling threshold - throttling likely")
-                
+
                 print(f"  Range:    {stats['min']:.1f} - {stats['max']:.1f} mW")
                 print(f"  Std Dev:  {stats['std']:.1f} mW")
                 print(f"  Samples:  {stats['samples']}")
                 print()
-        
+
         # Attribution Analysis
-        if 'attribution' in analysis and analysis['attribution']:
+        if "attribution" in analysis and analysis["attribution"]:
             print("🎯 ATTRIBUTION ANALYSIS")
             print("-" * 70)
             print()
-            
-            for component in ['ane', 'gpu']:
-                if component in analysis['attribution']:
-                    attr = analysis['attribution'][component]
+
+            for component in ["ane", "gpu"]:
+                if component in analysis["attribution"]:
+                    attr = analysis["attribution"][component]
                     component_name = component.upper()
-                    
+
                     print(f"{component_name} Attribution:")
                     print(f"  Component Power: {attr['component_mean_mw']:8.1f} mW")
                     print(f"  Total Power:     {attr['total_mean_mw']:8.1f} mW")
                     print(f"  Attribution:     {attr['attribution_ratio_pct']:5.1f}% of total")
-                    
-                    if attr['delta_attribution_pct'] is not None:
-                        print(f"  Delta Attribution: {attr['delta_attribution_pct']:5.1f}% of delta")
-                    
+
+                    if attr["delta_attribution_pct"] is not None:
+                        print(
+                            f"  Delta Attribution: {attr['delta_attribution_pct']:5.1f}% of delta"
+                        )
+
                     print(f"  Samples:          {attr['samples']}")
                     print()
-        
+
         # Summary
         print("💡 INTERPRETATION")
         print("-" * 70)
         print()
-        
-        if 'ane' in analysis and analysis['ane']:
-            ane_stats = analysis['ane']
-            if ane_stats['divergence_pct'] > 5.0:
+
+        if "ane" in analysis and analysis["ane"]:
+            ane_stats = analysis["ane"]
+            if ane_stats["divergence_pct"] > 5.0:
                 print("⚠️  ANE shows significant divergence - background interference detected")
             else:
                 print("✅ ANE shows stable power consumption")
-        
-        if 'gpu' in analysis and analysis['gpu']:
-            gpu_stats = analysis['gpu']
-            if gpu_stats['divergence_pct'] > 5.0:
+
+        if "gpu" in analysis and analysis["gpu"]:
+            gpu_stats = analysis["gpu"]
+            if gpu_stats["divergence_pct"] > 5.0:
                 print("⚠️  GPU shows significant divergence - background interference detected")
             else:
                 print("✅ GPU shows stable power consumption")
-        
-        if 'attribution' in analysis:
-            if 'ane' in analysis['attribution']:
-                ane_attr = analysis['attribution']['ane']
-                print(f"📊 ANE contributes {ane_attr['attribution_ratio_pct']:.1f}% of total package power")
-            
-            if 'gpu' in analysis['attribution']:
-                gpu_attr = analysis['attribution']['gpu']
-                print(f"📊 GPU contributes {gpu_attr['attribution_ratio_pct']:.1f}% of total package power")
+
+        if "attribution" in analysis:
+            if "ane" in analysis["attribution"]:
+                ane_attr = analysis["attribution"]["ane"]
+                print(
+                    f"📊 ANE contributes {ane_attr['attribution_ratio_pct']:.1f}% of total package power"
+                )
+
+            if "gpu" in analysis["attribution"]:
+                gpu_attr = analysis["attribution"]["gpu"]
+                print(
+                    f"📊 GPU contributes {gpu_attr['attribution_ratio_pct']:.1f}% of total package power"
+                )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Monitor ANE/GPU power with skewness and attribution analysis'
+        description="Monitor ANE/GPU power with skewness and attribution analysis"
     )
     parser.add_argument(
-        '--duration',
-        type=int,
-        default=60,
-        help='Monitoring duration in seconds (default: 60)'
+        "--duration", type=int, default=60, help="Monitoring duration in seconds (default: 60)"
     )
     parser.add_argument(
-        '--interval',
-        type=int,
-        default=500,
-        help='Sampling interval in milliseconds (default: 500)'
+        "--interval", type=int, default=500, help="Sampling interval in milliseconds (default: 500)"
     )
-    
+
     args = parser.parse_args()
-    
+
     monitor = ANEGPUMonitor(sample_interval=args.interval)
-    
+
     print("=" * 70)
     print("🧠 ANE/GPU MONITOR: Skewness & Attribution Analysis")
     print("=" * 70)
@@ -679,23 +687,22 @@ def main():
     print("  • Attribution ratio (component vs total power)")
     print("  • Background interference detection")
     print()
-    
+
     # Collect data
     power_data = monitor.collect_power_data(duration=args.duration)
-    
+
     if not power_data:
         print("❌ Failed to collect power data")
         return 1
-    
+
     # Analyze
     analysis = monitor.analyze_power_data(power_data)
-    
+
     # Print results
     monitor.print_analysis(analysis)
-    
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

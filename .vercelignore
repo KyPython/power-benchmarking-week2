@@ -1,0 +1,39 @@
+# Ignore Python files and build artifacts
+power_benchmarking_suite/
+scripts/
+*.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ignore development files
+.git/
+.github/
+.cursor/
+*.md
+!docs/*.md
+!docs/*.html
+
+# Ignore config files
+requirements*.txt
+setup.py
+Makefile
+Dockerfile
+docker-compose.yml
+.pre-commit-config.yaml
+
+# Only deploy docs/ directory
+!docs/
+
+

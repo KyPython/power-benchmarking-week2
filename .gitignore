@@ -16,14 +16,18 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
+.venv
 
 # IDE
 .vscode/
@@ -31,30 +35,63 @@ ENV/
 *.swp
 *.swo
 *~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Data files
+*.csv
+*.json
+*.png
+*.pdf
+power_log.csv
+power_data/
+*.mlpackage/
+!MobileNetV2.mlpackage/
+
+# Configuration
+~/.power_benchmarking/
+.power_benchmarking/
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 
-# Power Benchmarking Suite
-*.csv
-*.png
-*.jpg
-*.jpeg
-power_log*.csv
-*.mlpackage/
-MobileNetV2.mlpackage/
-
-# Configuration (user-specific)
-.power_benchmarking/
+# Logs
 *.log
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
+# Environment
+.env
+.env.local
 
-# Documentation builds
-docs/_build/
-site/
+# Build artifacts
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Security
+bandit-report.json
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.cursor/rules/snyk_rules.mdc

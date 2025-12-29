@@ -62,24 +62,22 @@ except KeyboardInterrupt:
     for p in processes:
         p.terminate()
 """
-    
+
     return subprocess.Popen(
-        ['python3', '-c', stall_script],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        ["python3", "-c", stall_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
 
 def test_select_performance(duration=10, stall_enabled=True):
     """
     Test select.select() performance under normal and stressed conditions.
-    
+
     Args:
         duration: Test duration in seconds
         stall_enabled: Whether to run CPU stress during test
     """
     global running, response_times
-    
+
     print("=" * 70)
     print("🧪 I/O Performance Stress Test")
     print("=" * 70)
@@ -87,76 +85,76 @@ def test_select_performance(duration=10, stall_enabled=True):
     print(f"Stall enabled: {stall_enabled}")
     print("=" * 70)
     print()
-    
+
     # Create a dummy subprocess that outputs data periodically
-    cmd = ['python3', '-c', '''
+    cmd = [
+        "python3",
+        "-c",
+        """
 import time
 import sys
 for i in range(1000):
     print(f"Data line {i}")
     sys.stdout.flush()
     time.sleep(0.1)
-''']
-    
+""",
+    ]
+
     process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=0
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=0
     )
-    
+
     # Start stall process if enabled
     stall_process = None
     if stall_enabled:
         print("🔥 Starting CPU stress process...")
         stall_process = create_stall_process()
         time.sleep(1)  # Let stress process start
-    
+
     print("📊 Starting I/O performance test...")
     print("   (Press Ctrl+C to test shutdown response time)")
     print()
-    
+
     buffer = ""
     line_count = 0
     start_time = time.time()
     last_check_time = start_time
-    
+
     try:
         while running and (time.time() - start_time) < duration:
             # Measure time before select
             before_select = time.time()
-            
+
             # Use select.select() (non-blocking)
             ready, _, _ = select.select([process.stdout], [], [], 0.1)
-            
+
             # Measure time after select
             after_select = time.time()
             select_time = (after_select - before_select) * 1000  # ms
-            
+
             # Record response time
             if select_time < 200:  # Only record reasonable times
                 response_times.append(select_time)
-            
+
             if ready:
                 # Data available - read it
                 chunk = process.stdout.read(4096)
                 if chunk:
                     buffer += chunk
-                    line_count += buffer.count('\n')
-                    buffer = buffer.split('\n')[-1]  # Keep incomplete line
+                    line_count += buffer.count("\n")
+                    buffer = buffer.split("\n")[-1]  # Keep incomplete line
             else:
                 # No data - check process status
                 if process.poll() is not None:
                     break
-            
+
             # Periodic status
             current_time = time.time()
             if current_time - last_check_time >= 1.0:
                 avg_response = mean(response_times) if response_times else 0
                 print(f"   Lines processed: {line_count} | Avg select time: {avg_response:.2f} ms")
                 last_check_time = current_time
-    
+
     except KeyboardInterrupt:
         # This should be caught by signal handler, but just in case
         pass
@@ -168,7 +166,7 @@ for i in range(1000):
         if stall_process:
             stall_process.terminate()
             stall_process.wait()
-    
+
     return response_times, shutdown_times
 
 
@@ -177,36 +175,36 @@ def print_results(response_times, shutdown_times, stall_enabled):
     print("\n" + "=" * 70)
     print("📊 TEST RESULTS")
     print("=" * 70)
-    
+
     if response_times:
         print(f"\nselect.select() Performance ({len(response_times)} samples):")
         print(f"   Mean:    {mean(response_times):.2f} ms")
         print(f"   Median:  {median(response_times):.2f} ms")
         print(f"   Min:     {min(response_times):.2f} ms")
         print(f"   Max:     {max(response_times):.2f} ms")
-        
+
         # Validate claim: <100ms response time
         p95 = sorted(response_times)[int(len(response_times) * 0.95)]
         print(f"   95th percentile: {p95:.2f} ms")
-        
+
         if p95 < 100:
             print("   ✅ CLAIM VALIDATED: 95th percentile < 100ms")
         else:
             print("   ⚠️  CLAIM NOT MET: Some responses > 100ms")
-    
+
     if shutdown_times:
         print(f"\nShutdown Response Time ({len(shutdown_times)} tests):")
         for i, st in enumerate(shutdown_times, 1):
             print(f"   Test {i}: {st:.2f} ms")
-        
+
         avg_shutdown = mean(shutdown_times)
         print(f"   Average: {avg_shutdown:.2f} ms")
-        
+
         if avg_shutdown < 100:
             print("   ✅ CLAIM VALIDATED: Shutdown response < 100ms")
         else:
             print("   ⚠️  CLAIM NOT MET: Shutdown response > 100ms")
-    
+
     print("\n" + "=" * 70)
     print("💡 Interpretation:")
     if stall_enabled:
@@ -222,38 +220,25 @@ def print_results(response_times, shutdown_times, stall_enabled):
 def main():
     """Main test function."""
     import argparse
-    
-    parser = argparse.ArgumentParser(
-        description='Stress test select.select() I/O performance'
-    )
+
+    parser = argparse.ArgumentParser(description="Stress test select.select() I/O performance")
     parser.add_argument(
-        '--duration', '-d',
-        type=int,
-        default=10,
-        help='Test duration in seconds (default: 10)'
+        "--duration", "-d", type=int, default=10, help="Test duration in seconds (default: 10)"
     )
-    parser.add_argument(
-        '--stall',
-        action='store_true',
-        help='Enable CPU stress during test'
-    )
-    
+    parser.add_argument("--stall", action="store_true", help="Enable CPU stress during test")
+
     args = parser.parse_args()
-    
+
     try:
-        response_times, shutdown_times = test_select_performance(
-            args.duration,
-            args.stall
-        )
+        response_times, shutdown_times = test_select_performance(args.duration, args.stall)
         print_results(response_times, shutdown_times, args.stall)
     except KeyboardInterrupt:
         print("\n\n✅ Test interrupted - shutdown response time recorded")
         if shutdown_times:
             print_results([], shutdown_times, args.stall)
-    
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -1,0 +1,33 @@
+name: Format Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install black
+      run: |
+        python -m pip install --upgrade pip
+        pip install black
+    
+    - name: Check formatting
+      run: |
+        black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/
+    
+    - name: Show formatting diff
+      if: failure()
+      run: |
+        echo "❌ Formatting issues found. Run 'black --line-length 100 power_benchmarking_suite/ scripts/ tests/' to fix:"
+        black --diff --line-length 100 power_benchmarking_suite/ scripts/ tests/ || true
+

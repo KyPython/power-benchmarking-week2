@@ -1,0 +1,23 @@
+# Development Dependencies (Only needed for development/testing)
+# Install with: pip install -r requirements-dev.txt
+# Or: pip install -e ".[dev]" (if using setup.py extras)
+
+# Code formatting
+black>=23.0.0
+
+# Linting and code quality
+flake8>=7.0.0
+mypy>=1.8.0
+bandit>=1.7.0
+safety>=2.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Pre-commit hooks
+pre-commit>=3.5.0
+
+# Type checking
+types-all
+

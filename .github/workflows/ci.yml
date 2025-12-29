@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: macos-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+        pip install pytest pytest-cov black flake8 mypy
+    
+    - name: Check code formatting with black
+      run: |
+        black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/
+      continue-on-error: true
+    
+    - name: Lint with flake8
+      run: |
+        flake8 power_benchmarking_suite/ scripts/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 power_benchmarking_suite/ scripts/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: true
+    
+    - name: Run integration tests
+      run: |
+        python tests/integration_test.py
+    
+    - name: Test CLI commands
+      run: |
+        power-benchmark --version
+        power-benchmark --help
+        power-benchmark monitor --help
+        power-benchmark analyze --help
+        power-benchmark optimize --help
+        power-benchmark config --help
+        power-benchmark quickstart --help
+        power-benchmark validate --help
+        power-benchmark business --help
+        power-benchmark marketing --help
+    
+    - name: Run code quality validations
+      run: |
+        chmod +x scripts/validate-*.sh
+        ./scripts/validate-all.sh || echo "⚠️ Code quality validations found issues (non-blocking for now)"
+      continue-on-error: true
+    
+    - name: Test imports
+      run: |
+        python -c "from power_benchmarking_suite.business import ClientManager; from power_benchmarking_suite.marketing import LeadCapture; print('✅ All imports working')"
+    
+    - name: Test business modules
+      run: |
+        python -c "
+        from power_benchmarking_suite.business import ClientManager, InvoiceManager, CheckinManager
+        from power_benchmarking_suite.services import StorageService
+        storage = StorageService()
+        client_mgr = ClientManager(storage)
+        print('✅ Business modules working')
+        "
+    
+    - name: Test marketing modules
+      run: |
+        python -c "
+        from power_benchmarking_suite.marketing import LeadCapture, EmailService, EmailTemplates
+        templates = EmailTemplates()
+        print(f'✅ Marketing modules working ({len(templates.list_templates())} templates)')
+        "
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy
+    
+    - name: Check formatting
+      id: format-check
+      run: |
+        if black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/; then
+          echo "✅ Code is properly formatted"
+          echo "needs_format=false" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Code formatting issues found"
+          echo "needs_format=true" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Auto-format code
+      if: steps.format-check.outputs.needs_format == 'true'
+      run: |
+        black --line-length 100 power_benchmarking_suite/ scripts/ tests/
+        echo "✅ Code auto-formatted"
+    
+    - name: Commit formatting fixes (PRs only)
+      if: steps.format-check.outputs.needs_format == 'true' && github.event_name == 'pull_request'
+      run: |
+        if ! git diff --exit-code power_benchmarking_suite/ scripts/ tests/; then
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add power_benchmarking_suite/ scripts/ tests/
+          git commit -m "🔧 Auto-format code with Black [skip ci]"
+          git push
+          echo "✅ Formatting fixes committed and pushed to PR"
+        else
+          echo "No formatting changes to commit"
+        fi
+    
+    - name: Lint code
+      run: |
+        flake8 power_benchmarking_suite/ scripts/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+    
+    - name: Run Bandit security scan
+      run: |
+        bandit -r power_benchmarking_suite/ scripts/ -f json -o bandit-report.json || true
+        bandit -r power_benchmarking_suite/ scripts/
+      continue-on-error: true
+    
+    - name: Check dependencies for vulnerabilities
+      run: |
+        safety check --json || true
+        safety check
+      continue-on-error: true
+

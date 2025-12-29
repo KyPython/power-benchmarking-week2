@@ -11,7 +11,8 @@ from pathlib import Path
 readme_file = Path(__file__).parent / "README.md"
 long_description = readme_file.read_text() if readme_file.exists() else ""
 
-# Read requirements
+# Read production requirements (runtime dependencies only)
+# Dev dependencies are in requirements-dev.txt and installed via extras_require
 requirements_file = Path(__file__).parent / "requirements.txt"
 requirements = []
 if requirements_file.exists():
@@ -21,14 +22,24 @@ if requirements_file.exists():
         if line.strip() and not line.startswith("#")
     ]
 
+# Read dev requirements for optional installation
+dev_requirements_file = Path(__file__).parent / "requirements-dev.txt"
+dev_requirements = []
+if dev_requirements_file.exists():
+    dev_requirements = [
+        line.strip()
+        for line in dev_requirements_file.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+
 setup(
     name="power-benchmarking-suite",
     version="1.0.0",
     description="Comprehensive toolkit for monitoring, analyzing, and visualizing power consumption on Apple Silicon Macs",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="KyPython",
+    author_email="kyjahntsmith@gmail.com",
     url="https://github.com/KyPython/power-benchmarking-week2",
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     py_modules=[
@@ -44,6 +55,9 @@ setup(
         "scripts.energy_gap_framework",
     ],
     install_requires=requirements,
+    extras_require={
+        "dev": dev_requirements,
+    },
     python_requires=">=3.8",
     entry_points={
         "console_scripts": [

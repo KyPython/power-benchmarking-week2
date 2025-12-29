@@ -12,6 +12,8 @@ This project demonstrates the performance and energy efficiency advantages of Ap
 - **Data Visualization**: Generate graphs and dashboards from power logs
 - **Application Comparison**: Compare power efficiency between different applications
 - **Hardware Integration**: Stream power data to Arduino for external monitoring
+- **Business Automation**: Client management, invoicing, check-ins, and workflow automation
+- **Marketing Automation**: Lead capture, email sequences, and automated onboarding
 
 ## 🚀 Quick Start
 

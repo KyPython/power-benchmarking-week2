@@ -1,0 +1,16 @@
+# Observability Dependencies
+# Install with: pip install -r requirements-observability.txt
+
+# OpenTelemetry
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation>=0.42b0
+
+# Prometheus
+prometheus-client>=0.18.0
+
+# Optional: Exporters
+opentelemetry-exporter-otlp>=1.20.0
+opentelemetry-exporter-jaeger>=1.20.0
+
+

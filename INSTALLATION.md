@@ -168,3 +168,4 @@ power-benchmark --premium-status  # Will create default config
 - Read `docs/QUICK_REFERENCE.md` for command reference
 - Read `docs/ARCHITECTURE.md` for technical details
 
+

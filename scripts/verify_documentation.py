@@ -27,7 +27,7 @@ DOCUMENTED_FEATURES = {
             "statistics display",
             "rich library support",
             "--test flag",
-            "--no-visual flag"
+            "--no-visual flag",
         ],
         "power_logger.py": [
             "CSV logging",
@@ -35,14 +35,14 @@ DOCUMENTED_FEATURES = {
             "non-blocking I/O",
             "select.select()",
             "--duration flag",
-            "--output flag"
+            "--output flag",
         ],
         "power_visualizer.py": [
             "matplotlib graphs",
             "CSV input",
             "multi-panel dashboard",
             "statistical annotations",
-            "PNG output"
+            "PNG output",
         ],
         "app_power_analyzer.py": [
             "PID-based filtering",
@@ -50,100 +50,102 @@ DOCUMENTED_FEATURES = {
             "app comparison",
             "process tracking",
             "--duration flag",
-            "--output flag"
+            "--output flag",
         ],
         "analyze_power_data.py": [
             "energy efficiency calculation",
             "power comparison",
             "energy per inference",
-            "file parsing"
+            "file parsing",
         ],
         "test_components.py": [
             "component verification",
             "model loading test",
-            "serial detection test"
+            "serial detection test",
         ],
         "test_full_integration.py": [
             "integration testing",
             "import verification",
             "model test",
             "powermetrics test",
-            "Arduino test"
+            "Arduino test",
         ],
         "validate_io_performance.py": [
             "I/O performance test",
             "select.select() validation",
             "chaos test",
             "--duration flag",
-            "--stall flag"
+            "--stall flag",
         ],
         "validate_attribution.py": [
             "attribution ratio calculation",
             "power virus",
             "baseline measurement",
             "--cores flag",
-            "--virus-duration flag"
+            "--virus-duration flag",
         ],
         "validate_statistics.py": [
             "statistical validation",
             "workload generation",
             "mean/median divergence",
             "--duration flag",
-            "--analyze-only flag"
+            "--analyze-only flag",
         ],
         "arduino_power_receiver.ino": [
             "serial communication",
             "ANE_PWR parsing",
             "115200 baud",
             "error counting",
-            "LED feedback"
-        ]
+            "LED feedback",
+        ],
     },
     "features": {
         "real_time_visualization": [
             "live statistics display",
             "power bar visualization",
             "rich library support",
-            "automatic fallback"
+            "automatic fallback",
         ],
         "arduino_integration": [
             "automatic port detection",
             "serial data streaming",
             "500ms interval",
-            "graceful degradation"
+            "graceful degradation",
         ],
         "power_monitoring": [
             "ANE power parsing",
             "powermetrics integration",
             "CSV logging",
-            "real-time collection"
+            "real-time collection",
         ],
         "multi_threading": [
             "inference thread",
             "power monitoring thread",
             "serial thread",
-            "thread-safe queues"
+            "thread-safe queues",
         ],
         "error_handling": [
             "graceful shutdown",
             "Arduino not found handling",
             "powermetrics error handling",
-            "signal handlers"
-        ]
-    }
+            "signal handlers",
+        ],
+    },
 }
+
 
 def check_file_exists(filepath: Path) -> bool:
     """Check if a file exists."""
     return filepath.exists()
 
+
 def check_imports_in_file(filepath: Path, expected_imports: List[str]) -> List[str]:
     """Check if expected imports are present in a Python file."""
     missing = []
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             content = f.read()
-        
+
         for imp in expected_imports:
             # Simple pattern matching for imports
             patterns = [
@@ -155,68 +157,72 @@ def check_imports_in_file(filepath: Path, expected_imports: List[str]) -> List[s
                 missing.append(imp)
     except Exception as e:
         return [f"Error reading file: {e}"]
-    
+
     return missing
+
 
 def check_function_exists(filepath: Path, function_name: str) -> bool:
     """Check if a function exists in a Python file."""
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             content = f.read()
         return f"def {function_name}" in content or f"def {function_name}(" in content
     except:
         return False
 
+
 def check_argparse_flag(filepath: Path, flag: str) -> bool:
     """Check if an argparse flag exists."""
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             content = f.read()
         # Check for add_argument with the flag
         return f'"{flag}"' in content or f"'{flag}'" in content or f"--{flag}" in content
     except:
         return False
 
+
 def check_keyword_in_file(filepath: Path, keywords: List[str]) -> List[str]:
     """Check if keywords are present in file."""
     missing = []
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             content = f.read().lower()
-        
+
         for keyword in keywords:
             if keyword.lower() not in content:
                 missing.append(keyword)
     except:
         return keywords
-    
+
     return missing
+
 
 def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str]]:
     """Verify a script implements all documented features."""
     script_path = Path("scripts") / script_name
-    
+
     if not check_file_exists(script_path):
         return False, [f"Script {script_name} does not exist"]
-    
+
     issues = []
-    
+
     # Check for key features based on script type
     if script_name == "unified_benchmark.py":
         # Check for rich library support
         if "rich library support" in features:
             if not check_keyword_in_file(script_path, ["rich", "Console", "Table", "Panel"]):
                 issues.append("Rich library support not fully implemented")
-        
+
         # Check for flags
         if "--test flag" in features:
             if not check_argparse_flag(script_path, "--test"):
                 issues.append("--test flag not found")
-        
+
         if "--no-visual flag" in features:
             if not check_argparse_flag(script_path, "--no-visual"):
                 issues.append("--no-visual flag not found")
-        
+
         # Check for visualization functions
         if "real-time visualization" in features:
             if not check_function_exists(script_path, "display_live_stats"):
@@ -225,26 +231,26 @@ def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str
                 issues.append("create_stats_table function not found")
             if not check_function_exists(script_path, "create_power_bar"):
                 issues.append("create_power_bar function not found")
-        
+
         # Check for Arduino integration
         if "Arduino serial communication" in features:
             if not check_function_exists(script_path, "serial_writer"):
                 issues.append("serial_writer function not found")
             if not check_function_exists(script_path, "find_arduino_port"):
                 issues.append("find_arduino_port function not found")
-        
+
         # Check for power monitoring
         if "real-time power monitoring" in features:
             if not check_function_exists(script_path, "powermetrics_reader"):
                 issues.append("powermetrics_reader function not found")
             if not check_function_exists(script_path, "parse_ane_power"):
                 issues.append("parse_ane_power function not found")
-        
+
         # Check for multi-threading
         if "multi-threaded design" in features:
             if not check_keyword_in_file(script_path, ["threading", "Thread", "Queue"]):
                 issues.append("Multi-threading not implemented")
-    
+
     elif script_name == "power_logger.py":
         if "--duration flag" in features:
             if not check_argparse_flag(script_path, "--duration"):
@@ -255,7 +261,7 @@ def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str
         if "non-blocking I/O" in features:
             if not check_keyword_in_file(script_path, ["select.select", "select("]):
                 issues.append("Non-blocking I/O (select.select) not found")
-    
+
     elif script_name == "power_visualizer.py":
         if "matplotlib graphs" in features:
             if not check_keyword_in_file(script_path, ["matplotlib", "plt"]):
@@ -263,7 +269,7 @@ def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str
         if "CSV input" in features:
             if not check_keyword_in_file(script_path, ["pd.read_csv", "read_csv"]):
                 issues.append("CSV reading not implemented")
-    
+
     elif script_name == "app_power_analyzer.py":
         if "PID-based filtering" in features:
             if not check_keyword_in_file(script_path, ["psutil", "find_app_pids"]):
@@ -271,7 +277,7 @@ def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str
         if "--duration flag" in features:
             if not check_argparse_flag(script_path, "--duration"):
                 issues.append("--duration flag not found")
-    
+
     elif script_name.endswith(".ino"):
         # Arduino sketch checks
         if "115200 baud" in features:
@@ -280,8 +286,9 @@ def verify_script(script_name: str, features: List[str]) -> Tuple[bool, List[str
         if "ANE_PWR parsing" in features:
             if not check_keyword_in_file(script_path, ["ANE_PWR", "startsWith"]):
                 issues.append("ANE_PWR parsing not found")
-    
+
     return len(issues) == 0, issues
+
 
 def main():
     """Run comprehensive documentation verification."""
@@ -289,21 +296,21 @@ def main():
     print("📋 Documentation Verification Audit")
     print("=" * 70)
     print()
-    
+
     all_passed = True
     total_checks = 0
     passed_checks = 0
-    
+
     # Check all scripts
     print("🔍 Checking Scripts...")
     print()
-    
+
     for script_name, features in DOCUMENTED_FEATURES["scripts"].items():
         print(f"  Checking {script_name}...")
         total_checks += 1
-        
+
         passed, issues = verify_script(script_name, features)
-        
+
         if passed:
             print(f"    ✅ {script_name} - All features verified")
             passed_checks += 1
@@ -312,7 +319,7 @@ def main():
             for issue in issues:
                 print(f"       - {issue}")
             all_passed = False
-    
+
     print()
     print("=" * 70)
     print("📊 Verification Summary")
@@ -321,7 +328,7 @@ def main():
     print(f"  Passed: {passed_checks}")
     print(f"  Failed: {total_checks - passed_checks}")
     print()
-    
+
     if all_passed:
         print("✅ All documented features are implemented!")
         print()
@@ -334,6 +341,6 @@ def main():
         print("   Please review the issues above and update code or documentation.")
         return 1
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -89,6 +89,8 @@ Each document:
 
 **Total**: 14 documentation files (plus root README.md and scripts/README.md = 16 total), all serving distinct, long-term purposes.
 
+**Long-Term Value Audit**: See `DOCUMENTATION_AUDIT.md` for detailed analysis of each file's ongoing value.
+
 ## Documentation Count Verification
 
 **Root (1):**

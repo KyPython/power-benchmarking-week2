@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  power-benchmark:
+    build: .
+    container_name: power-benchmarking-suite
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - LOG_LEVEL=INFO
+      - ENABLE_METRICS=true
+      - METRICS_PORT=8000
+    ports:
+      - "8000:8000"  # Prometheus metrics
+    # Note: powermetrics requires macOS, so this container is for development/testing only
+    # Production use requires running on macOS host
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: power-benchmark-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: power-benchmark-grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+

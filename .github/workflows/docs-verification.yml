@@ -1,0 +1,76 @@
+name: Documentation Verification
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - 'power_benchmarking_suite/**'
+      - 'scripts/**'
+      - '.github/workflows/docs-verification.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/**'
+      - 'power_benchmarking_suite/**'
+      - 'scripts/**'
+      - '.github/workflows/docs-verification.yml'
+  schedule:
+    # Run weekly to catch documentation drift
+    - cron: '0 3 * * 1'  # Monday at 3 AM UTC
+
+jobs:
+  verify-docs:
+    name: Verify Documentation Matches Codebase
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+    
+    - name: Verify documentation matches codebase
+      id: verify
+      run: |
+        echo "📚 Verifying documentation matches codebase implementation..."
+        python scripts/verify_documentation_match.py
+      continue-on-error: false
+    
+    - name: Check study guide update status
+      id: study_guide
+      run: |
+        echo "📖 Checking Product Study Guide update status..."
+        python scripts/check_study_guide_update.py --warn-days 30
+      continue-on-error: true
+    
+    - name: Report verification status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Documentation verification passed"
+          echo "   All documented features are implemented in codebase"
+        else
+          echo "❌ Documentation verification failed"
+          echo "   Some documented features are missing from codebase"
+          echo "   Check the logs above for details"
+        fi
+        
+        if [ "${{ steps.study_guide.outcome }}" == "success" ]; then
+          echo "✅ Study guide check passed"
+        elif [ "${{ steps.study_guide.outcome }}" == "failure" ]; then
+          echo "❌ Study guide check failed"
+          echo "   The study guide should be updated with new features/concepts"
+        else
+          echo "⚠️  Study guide check completed with warnings"
+          echo "   Consider updating the study guide if it's been >30 days"
+        fi
+
