@@ -2,9 +2,9 @@ name: Apple Silicon Compatibility Check
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
   schedule:
     # Run weekly to catch compatibility regressions
     - cron: '0 2 * * 1'  # Monday at 2 AM UTC

@@ -2,14 +2,14 @@ name: Documentation Verification
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
     paths:
       - 'docs/**'
       - 'power_benchmarking_suite/**'
       - 'scripts/**'
       - '.github/workflows/docs-verification.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
     paths:
       - 'docs/**'
       - 'power_benchmarking_suite/**'
