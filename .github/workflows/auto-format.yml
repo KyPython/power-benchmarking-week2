@@ -2,7 +2,7 @@ name: Auto-Format
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
   workflow_dispatch:
 
 jobs:
