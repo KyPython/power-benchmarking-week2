@@ -43,6 +43,7 @@ pip install power-benchmarking-suite
 | `power-benchmark config` | Configuration management | No |
 | `power-benchmark quickstart` | Interactive onboarding | No |
 | `power-benchmark business` | Business automation | No |
+| `power-benchmark schedule` | Schedule automated tasks | No |
 | `power-benchmark help` | Show commands reference guide | No |
 
 **Quick Examples**:
@@ -61,6 +62,9 @@ sudo power-benchmark monitor --test 30
 
 # Generate Green README
 power-benchmark marketing readme
+
+# Set up automated tasks (daily health checks, weekly monitoring)
+power-benchmark schedule setup --all
 ```
 
 **📖 Full Reference**: See `COMMANDS_REFERENCE.md` for complete command documentation with examples and workflows.

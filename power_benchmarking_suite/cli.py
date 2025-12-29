@@ -34,6 +34,7 @@ from power_benchmarking_suite.commands import (
     validate,
     business,
     marketing,
+    schedule,
 )
 from power_benchmarking_suite.commands import help_cmd
 
@@ -94,6 +95,7 @@ For more information, see QUICK_START_GUIDE.md
     validate.add_parser(subparsers)
     business.add_parser(subparsers)
     marketing.add_parser(subparsers)
+    schedule.add_parser(subparsers)
     help_cmd.add_parser(subparsers)
 
     # Parse arguments

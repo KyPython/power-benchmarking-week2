@@ -26,6 +26,7 @@
 | `power-benchmark config` | Configuration management | No |
 | `power-benchmark quickstart` | Interactive onboarding | No |
 | `power-benchmark business` | Business automation | No |
+| `power-benchmark schedule` | Schedule automated tasks | No |
 | `power-benchmark help` | Show this reference guide | No |
 
 ---
@@ -303,7 +304,96 @@ power-benchmark business invoice --generate
 
 ---
 
-### 9. `power-benchmark help` - Show Commands Reference
+### 9. `power-benchmark schedule` - Schedule Automated Tasks
+
+**Purpose**: Automate command execution at specified intervals to improve UX.
+
+**Subcommands**:
+```bash
+# Add a scheduled task
+power-benchmark schedule add --command "validate --verbose" --daily
+
+# List all schedules
+power-benchmark schedule list
+
+# Remove a schedule
+power-benchmark schedule remove --id 1
+
+# Run a schedule now
+power-benchmark schedule run --id 1
+
+# Quick setup for common automations
+power-benchmark schedule setup --all
+```
+
+**Common Automations**:
+- **Daily System Health Check**: `power-benchmark schedule setup --health-check`
+- **Weekly Power Monitoring**: `power-benchmark schedule setup --power-monitor`
+- **All Common Automations**: `power-benchmark schedule setup --all`
+
+**Examples**:
+```bash
+# Quick setup: Daily health check + Weekly power monitoring
+power-benchmark schedule setup --all
+
+# Add custom daily validation at 9 AM
+power-benchmark schedule add --command "validate --verbose" --daily
+
+# Add weekly power monitoring on Mondays at 10 AM
+power-benchmark schedule add --command "monitor --test 300" --weekly --at "10:00"
+
+# Add hourly system check
+power-benchmark schedule add --command "validate" --hourly
+
+# List all scheduled tasks
+power-benchmark schedule list
+
+# Run a schedule immediately
+power-benchmark schedule run --id 1
+
+# Disable a schedule
+power-benchmark schedule toggle --id 1
+```
+
+**Schedule Types**:
+- `--daily`: Run daily at specified time (default: 9 AM)
+- `--weekly`: Run weekly on Monday at specified time (default: 9 AM)
+- `--hourly`: Run every hour
+- `--interval N`: Run every N minutes
+- `--at HH:MM`: Run at specific time (e.g., "14:30")
+
+---
+
+### 10. `power-benchmark help` - Show Commands Reference
+
+**Subcommands**:
+```bash
+# Client management
+power-benchmark business clients --list
+power-benchmark business clients --add "Client Name"
+
+# Invoicing
+power-benchmark business invoice --generate
+
+# Check-ins
+power-benchmark business checkin --create
+```
+
+**Examples**:
+```bash
+# List all clients
+power-benchmark business clients --list
+
+# Add a new client
+power-benchmark business clients --add "Acme Corp"
+
+# Generate invoice
+power-benchmark business invoice --generate
+```
+
+---
+
+### 10. `power-benchmark help` - Show Commands Reference
 
 **Purpose**: Display this commands reference guide.
 
@@ -377,7 +467,22 @@ power-benchmark marketing readme
 power-benchmark validate --verbose
 ```
 
-### Workflow 5: CI/CD Integration
+### Workflow 5: Automated Scheduling
+```bash
+# 1. Set up common automations
+power-benchmark schedule setup --all
+
+# 2. View scheduled tasks
+power-benchmark schedule list
+
+# 3. Add custom automation
+power-benchmark schedule add --command "analyze csv power_log.csv" --daily --at "18:00"
+
+# 4. Run a schedule manually
+power-benchmark schedule run --id 1
+```
+
+### Workflow 6: CI/CD Integration
 ```bash
 # 1. Run mock validation (no hardware needed)
 power-benchmark validate --mock --verbose

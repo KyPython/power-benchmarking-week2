@@ -51,6 +51,7 @@ def _show_commands_reference():
         ("config", "Configuration management", "No"),
         ("quickstart", "Interactive onboarding", "No"),
         ("business", "Business automation", "No"),
+        ("schedule", "Schedule automated tasks", "No"),
         ("help", "Show this reference guide", "No"),
     ]
     
@@ -103,6 +104,12 @@ def _show_commands_reference():
     print("8. Business Automation:")
     print("   power-benchmark business clients --list")
     print("   power-benchmark business invoice --generate")
+    print()
+    
+    print("9. Schedule Automation:")
+    print("   power-benchmark schedule setup --all          # Quick setup")
+    print("   power-benchmark schedule add --command 'validate --verbose' --daily")
+    print("   power-benchmark schedule list                  # View all schedules")
     print()
     
     print("=" * 70)
