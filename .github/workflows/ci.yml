@@ -40,13 +40,10 @@ jobs:
     - name: Check code formatting with black
       run: |
         black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/
-      continue-on-error: true
     
-    - name: Lint with flake8
+    - name: Lint with flake8 (critical errors only)
       run: |
         flake8 power_benchmarking_suite/ scripts/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 power_benchmarking_suite/ scripts/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      continue-on-error: true
     
     - name: Run integration tests
       run: |
@@ -64,12 +61,13 @@ jobs:
         power-benchmark validate --help
         power-benchmark business --help
         power-benchmark marketing --help
+        power-benchmark schedule --help
+        power-benchmark help --help
     
     - name: Run code quality validations
       run: |
         chmod +x scripts/validate-*.sh
-        ./scripts/validate-all.sh || echo "⚠️ Code quality validations found issues (non-blocking for now)"
-      continue-on-error: true
+        ./scripts/validate-all.sh
     
     - name: Test imports
       run: |
@@ -145,7 +143,7 @@ jobs:
     
     - name: Lint code
       run: |
-        flake8 power_benchmarking_suite/ scripts/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+        flake8 power_benchmarking_suite/ scripts/ tests/ --max-line-length=100 --extend-ignore=E203,W503 --count --select=E9,F63,F7,F82 --show-source --statistics
 
   security:
     runs-on: ubuntu-latest
