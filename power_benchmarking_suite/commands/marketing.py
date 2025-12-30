@@ -72,6 +72,62 @@ def add_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParse
     )
     parser_readme.set_defaults(marketing_subtype="readme")
 
+    # Course materials generator subcommand
+    parser_course = subparsers_mkt.add_parser(
+        "course",
+        help="Generate course materials",
+        description="Generate course syllabus, landing page, and marketing materials for Engineering Architect Program",
+    )
+    parser_course.add_argument(
+        "type",
+        choices=["syllabus", "landing", "all"],
+        help="Type of course material to generate",
+    )
+    parser_course.add_argument(
+        "--output",
+        type=str,
+        help="Output directory (default: ./course_materials/)",
+    )
+    parser_course.set_defaults(marketing_subtype="course")
+
+    # White paper generator subcommand
+    parser_whitepaper = subparsers_mkt.add_parser(
+        "whitepaper",
+        help="Generate architect white paper",
+        description="Generate white paper template for System Architect capstone project",
+    )
+    parser_whitepaper.add_argument(
+        "--output",
+        type=str,
+        default="ARCHITECT_WHITEPAPER.md",
+        help="Output file path (default: ARCHITECT_WHITEPAPER.md)",
+    )
+    parser_whitepaper.add_argument(
+        "--company",
+        type=str,
+        help="Company name (for customization)",
+    )
+    parser_whitepaper.add_argument(
+        "--team-size",
+        type=int,
+        help="Team size (for FTE calculations)",
+    )
+    parser_whitepaper.set_defaults(marketing_subtype="whitepaper")
+
+    # Bio/LinkedIn generator subcommand
+    parser_bio = subparsers_mkt.add_parser(
+        "bio",
+        help="Generate LinkedIn/bio content",
+        description="Generate LinkedIn headline and bio based on 2026 strategy",
+    )
+    parser_bio.add_argument(
+        "--output",
+        type=str,
+        default="LINKEDIN_BIO.txt",
+        help="Output file path (default: LINKEDIN_BIO.txt)",
+    )
+    parser_bio.set_defaults(marketing_subtype="bio")
+
     parser.set_defaults(func=run)
     return parser
 
@@ -89,6 +145,12 @@ def run(args: argparse.Namespace, config: Optional[dict] = None) -> int:
             return _handle_email(args, config)
         elif args.marketing_type == "readme":
             return _handle_readme(args, config)
+        elif args.marketing_type == "course":
+            return _handle_course(args, config)
+        elif args.marketing_type == "whitepaper":
+            return _handle_whitepaper(args, config)
+        elif args.marketing_type == "bio":
+            return _handle_bio(args, config)
         else:
             logger.error(f"Unknown marketing type: {args.marketing_type}")
             return 1
@@ -817,6 +879,499 @@ Built to demonstrate the performance advantages of Apple's Neural Engine and Cor
 
 **🌱 Built with sustainability in mind. Every optimization counts.**
 """
+
+
+def _handle_course(args: argparse.Namespace, config: Optional[dict] = None) -> int:
+    """Generate course materials for Engineering Architect Program."""
+    try:
+        output_dir = Path(args.output) if args.output else Path("course_materials")
+        output_dir.mkdir(exist_ok=True)
+
+        if args.type == "syllabus" or args.type == "all":
+            syllabus_content = _generate_course_syllabus()
+            syllabus_path = output_dir / "ENGINEERING_ARCHITECT_SYLLABUS.md"
+            syllabus_path.write_text(syllabus_content, encoding="utf-8")
+            print(f"✅ Course syllabus generated: {syllabus_path}")
+
+        if args.type == "landing" or args.type == "all":
+            landing_content = _generate_landing_page()
+            landing_path = output_dir / "LANDING_PAGE.md"
+            landing_path.write_text(landing_content, encoding="utf-8")
+            print(f"✅ Landing page generated: {landing_path}")
+
+        if args.type == "all":
+            print(f"\n📚 All course materials generated in: {output_dir.absolute()}")
+            print(f"   - ENGINEERING_ARCHITECT_SYLLABUS.md")
+            print(f"   - LANDING_PAGE.md")
+
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to generate course materials: {e}", exc_info=True)
+        return 1
+
+
+def _handle_whitepaper(args: argparse.Namespace, config: Optional[dict] = None) -> int:
+    """Generate architect white paper template."""
+    try:
+        output_path = Path(args.output)
+        company = args.company or "Your Company"
+        team_size = args.team_size or 10
+
+        whitepaper_content = _generate_whitepaper_template(company, team_size)
+        output_path.write_text(whitepaper_content, encoding="utf-8")
+
+        print(f"\n✅ Architect white paper generated:")
+        print(f"  Output: {output_path.absolute()}")
+        print(f"  Company: {company}")
+        print(f"  Team Size: {team_size}")
+        print(f"\n💡 Next steps:")
+        print(f"  1. Review: {output_path}")
+        print(f"  2. Customize: Fill in company-specific data")
+        print(f"  3. Present: Use as capstone project deliverable")
+
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to generate white paper: {e}", exc_info=True)
+        return 1
+
+
+def _handle_bio(args: argparse.Namespace, config: Optional[dict] = None) -> int:
+    """Generate LinkedIn/bio content."""
+    try:
+        output_path = Path(args.output)
+        bio_content = _generate_linkedin_bio()
+        output_path.write_text(bio_content, encoding="utf-8")
+
+        print(f"\n✅ LinkedIn/bio content generated:")
+        print(f"  Output: {output_path.absolute()}")
+        print(f"\n💡 Next steps:")
+        print(f"  1. Review: {output_path}")
+        print(f"  2. Customize: Add your personal touch")
+        print(f"  3. Update: Copy to LinkedIn profile")
+
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to generate bio: {e}", exc_info=True)
+        return 1
+
+
+def _generate_course_syllabus() -> str:
+    """Generate 8-week course syllabus."""
+    return r"""# 🎓 Engineering Architect Program - 8-Week Course Syllabus
+
+**Outcome:** Move students from "Code Writers" (cost centers) to "System Architects" (profit centers) who can prove the financial impact of their decisions.
+
+---
+
+## Module 1 – The Silicon Truth
+
+**Topic:** Load, heat, and the paradox of speed.
+
+**Key Concepts:**
+- Thermal Ceiling and Heat Tax
+- Formula: $$Completion_Time = Work_Time + Throttling_Penalty_Time$$
+- The 27% slowdown from sustained 100% load vs. ~80% sweet spot
+
+**Lab:** Power‑benchmark your own machine to find the Thermal Ceiling and visualize the Heat Tax.
+
+**Deliverable:** Thermal analysis report showing where your system hits thermal limits.
+
+---
+
+## Module 2 – The Engineering Insolvency Simulator
+
+**Topic:** Technical debt vs. financial interest.
+
+**Key Concepts:**
+- 4,368% APR formula: $$Gap(t) = 7% \times 2^t$$
+- Technical Payday Loan analogy
+- 8-week bankruptcy timeline
+
+**Lab:** Spreadsheet simulation of skipping optimization for one week, modeling exponential capacity loss and the Insolvency Date (8‑week crash).
+
+**Deliverable:** Insolvency simulator spreadsheet with capacity forecasts.
+
+---
+
+## Module 3 – The Breaking Point
+
+**Topic:** Reversibility vs. insolvency.
+
+**Key Concepts:**
+- Month 6: ~85% capacity (repairable zone)
+- Month 9: Below 0% effective capacity (system insolvent; full rebuild required)
+- Negative Breaking Point
+
+**Lab:** Capacity modeling from Month 6 (repair) to Month 9 (rebuild); identify when capacity drops below demand.
+
+**Deliverable:** Breaking point analysis with recovery timeline.
+
+---
+
+## Module 4 – Translating Benchmarks into Money
+
+**Topic:** Salesman's Dictionary and FTE Recovery.
+
+**Key Concepts:**
+- The Leaky Pipe analogy
+- 13.3‑month ROI calculation
+- FTE recovery and rebuild avoidance
+
+**Lab:** 13.3‑month ROI calculation; build a business case for a refactor using FTE savings and rebuild avoidance.
+
+**Deliverable:** Business case document with ROI calculations.
+
+---
+
+## Module 5 – The Engineering of Quiet
+
+**Topic:** Making invisible work visible.
+
+**Key Concepts:**
+- Thermostat Analogy
+- 0 hotfixes as a metric
+- Stability metrics for non-technical stakeholders
+
+**Lab:** Thermostat Analogy dashboard that surfaces "0 hotfixes" and stability as a metric non‑technical stakeholders understand.
+
+**Deliverable:** Dashboard mockup showing invisible work metrics.
+
+---
+
+## Module 6 – The Shield of Accountability
+
+**Topic:** Objective refusal and Binary Priority.
+
+**Key Concepts:**
+- ROI Protection Formula
+- Binary Priority framework
+- Objective refusal scripts
+
+**Lab:** Roleplay defending an optimization sprint against "just one small feature" requests.
+
+**Deliverable:** Refusal script template with mathematical justification.
+
+---
+
+## Module 7 – Automation & AI (EasyFlow Niche)
+
+**Topic:** Embedded AI optimization on constrained hardware.
+
+**Key Concepts:**
+- Model/infra choices for power efficiency
+- ~15% power leakage reduction
+- Constrained hardware optimization
+
+**Lab:** Benchmark an inference model and cut power leakage by ~15% through model/infra choices.
+
+**Deliverable:** AI optimization report with power savings.
+
+---
+
+## Module 8 – Capstone – The Architect's Pitch
+
+**Project:** Build a Power Benchmarking Suite + Insolvency Model + ROI Business Case.
+
+**Goal:** Present a Systemic Recovery Plan to a mock VP/CTO.
+
+**Deliverable:** Complete Architect's White Paper (see template below).
+
+---
+
+## 🧪 Rubric – A‑Level Architect Standard
+
+- ✅ Designs meaningful benchmarks and interprets heat/capacity behavior
+- ✅ Builds a correct Insolvency Simulator and ties it to dollars and FTEs
+- ✅ Communicates in analogies and ROI language a VP or Finance can act on
+- ✅ Defends optimization work under pressure with trade‑off clarity
+- ✅ Ships a cohesive Architect's White Paper + pitch that looks like 6–12 months of real architecture experience
+
+---
+
+**Course Materials:** All labs use the Power Benchmarking Suite. See `power-benchmark help` for command reference.
+"""
+
+
+def _generate_landing_page() -> str:
+    """Generate landing page content."""
+    return r"""# 🚀 Engineering Architect Program - 2026
+
+## Most engineers are living on a **Technical Payday Loan**.
+
+Stop pouring effort into a **Leaky Pipe**.
+
+Join the 2026 Engineering Architect Program and learn how to write code that pays for itself.
+
+---
+
+## 💎 What You'll Learn
+
+### From Code Writer to System Architect
+
+Transform from a "cost center" to a "profit center" by proving the financial impact of your decisions.
+
+**8-Week Program Outcomes:**
+- ✅ Quantify the 27% Heat Tax and model Insolvency Timelines
+- ✅ Build ROI business cases that VPs and Finance understand
+- ✅ Defend optimization work with mathematical certainty
+- ✅ Ship code that doesn't just work—it pays for itself
+
+---
+
+## 📈 The Mathematical Laws You'll Master
+
+### Law of 80% – The Heat Tax
+$$Completion_Time = Work_Time + Throttling_Penalty_Time$$
+
+Sustained 100% load triggers a ~27% slowdown vs. running at ~80% under thermal limits.
+
+### 4,368% APR – The Loan
+$$Gap(t) = 7% \times 2^t$$
+
+Skipping one week of optimization is modeled as taking a "technical payday loan" whose effective interest explodes over 8 weeks.
+
+### Negative Breaking Point
+- **Month 6:** ~85% capacity (repairable zone)
+- **Month 9:** Below 0% effective capacity (system insolvent; full rebuild required)
+
+---
+
+## 🗣️ The Salesman's Dictionary
+
+Learn to translate technical concepts into business language:
+
+- **The Leaky Pipe:** Paying for water (FTE salaries, hardware) that never reaches the faucet (features shipped)
+- **The Thermostat:** The system throttles itself off to avoid "fire," turning raw load into instability and crashes
+- **The Payday Loan:** Skipping debt service feels fast today but bankrupts the project by Week 8 via compounding technical interest
+
+---
+
+## 🛡️ The Shield of Accountability
+
+Master objective refusal scripts:
+
+**"It's not my opinion; it's the ROI Protection Formula. Pulling this feature in now effectively puts us on a 4,368% interest rate on our delivery timeline."**
+
+**"This optimization sprint isn't a cost; it's a recovery project that pays for itself in ~13.3 months by reclaiming ~1.5 FTEs of wasted capacity."**
+
+---
+
+## 🎓 8-Week Course Structure
+
+1. **The Silicon Truth** - Thermal Ceiling and Heat Tax
+2. **The Engineering Insolvency Simulator** - Technical debt as financial interest
+3. **The Breaking Point** - Reversibility vs. insolvency
+4. **Translating Benchmarks into Money** - FTE Recovery and ROI
+5. **The Engineering of Quiet** - Making invisible work visible
+6. **The Shield of Accountability** - Objective refusal and Binary Priority
+7. **Automation & AI** - Embedded AI optimization
+8. **Capstone – The Architect's Pitch** - White Paper + VP Presentation
+
+---
+
+## 🏆 What You'll Build
+
+- Power Benchmarking Suite for your team
+- Insolvency Model with capacity forecasts
+- ROI Business Case with FTE calculations
+- Architect's White Paper (capstone project)
+
+---
+
+## 💰 Investment
+
+**Early Bird Pricing:** [Your Pricing]
+
+**Includes:**
+- 8 weeks of live instruction
+- All course materials and labs
+- Power Benchmarking Suite license
+- Capstone project review
+- Lifetime access to course updates
+
+---
+
+## 🚀 Ready to Transform Your Career?
+
+**Stop living on Technical Payday Loans. Start building code that pays for itself.**
+
+[Sign Up Now] [Learn More] [Schedule a Call]
+"""
+
+
+def _generate_whitepaper_template(company: str, team_size: int) -> str:
+    """Generate architect white paper template."""
+    fte_recovery = team_size * 0.15  # 15% capacity recovery
+    monthly_savings = fte_recovery * 10000  # Rough estimate: $10k/month per FTE
     
-    return readme
+    return f"""# 🏆 System Architect White Paper: Systemic Recovery Plan
+
+**Company:** {company}  
+**Team Size:** {team_size} developers  
+**Date:** {datetime.now().strftime('%Y-%m-%d')}  
+**Author:** [Your Name], System Architect
+
+---
+
+## 1. Executive Summary
+
+### Bottom Line
+This optimization sprint delivers a **13.3‑month ROI** by reclaiming **{fte_recovery:.1f} FTEs** of wasted capacity and preventing a full system rebuild.
+
+### Warning
+At current velocity, the system becomes unmaintainable by **[INSOLVENCY DATE]** if no action is taken.
+
+### Analogy Anchor
+**The Leaky Pipe:** We're paying for {team_size} developers, but only getting {team_size * 0.85:.0f} worth of productivity due to thermal throttling and technical debt. This optimization project plugs the leak.
+
+---
+
+## 2. Silicon Performance Analysis (Hardware)
+
+### Thermal Ceiling Chart
+[INSERT CHART: 100% load vs. 80% sweet spot showing Heat Tax]
+
+**Key Finding:** "We are running in the red zone, wasting ${monthly_savings:,.0f}/month in lost cycles."
+
+### Evidence
+- Screens/plots of clock‑speed drops under sustained load
+- Latency spikes during peak usage
+- Power consumption data showing thermal throttling
+
+### Current State
+- **Thermal Ceiling:** [X]% (exceeds safe operating threshold)
+- **Heat Tax:** ~27% performance penalty
+- **Capacity Loss:** 15% of team productivity
+
+---
+
+## 3. Insolvency Model (Calendar)
+
+### Capacity Forecast
+- **Current:** ~85% capacity (Month 6 - repairable zone)
+- **Month 9:** Below 0% effective capacity (system insolvent)
+- **Deadline:** "At current velocity, the system becomes unmaintainable by **[DATE]**"
+
+### Streak Status
+- **4,368% APR narrative:** Skipping optimization weeks compounds technical debt exponentially
+- **Formula:** $$Gap(t) = 7\% \times 2^t$$
+- **8-Week Bankruptcy Timeline:** [INSERT TIMELINE CHART]
+
+---
+
+## 4. Systemic Recovery Plan (Solution)
+
+### Hard Boundary
+**Proposed 4‑week optimization sprint with Binary Priority (no new features)**
+
+### ROI Calculation
+- **FTEs Recovered:** {fte_recovery:.1f} (15% capacity recovery)
+- **Monthly Savings:** ${monthly_savings:,.0f}/month
+- **Annual Savings:** ${monthly_savings * 12:,.0f}/year
+- **Payback Period:** 13.3 months
+- **Rebuild Avoided:** $500,000+ (estimated full rebuild cost)
+
+### Risk Mitigation
+Move from "heroic" hotfix culture to preventative architecture:
+- **Before:** 5+ hotfixes per month, unpredictable crashes
+- **After:** 0 hotfixes, stable releases, predictable performance
+
+---
+
+## 5. Stakeholder Trade‑offs (Shield)
+
+### Feature Impact
+**Deferred Features (1-3):**
+1. [Feature Name] - Deferred to protect 13.3-month ROI
+2. [Feature Name] - Deferred to protect 13.3-month ROI
+3. [Feature Name] - Deferred to protect 13.3-month ROI
+
+### Math of "No"
+"Deferring these features now avoids ~$500k in future rebuild and productivity losses. The ROI Protection Formula shows that any interruption to the optimization sprint effectively puts us on a 4,368% interest rate on our delivery timeline."
+
+---
+
+## 6. Implementation Timeline
+
+**Week 1-2:** Thermal analysis and capacity modeling  
+**Week 3:** Optimization implementation  
+**Week 4:** Validation and ROI measurement
+
+**Deliverables:**
+- Thermal Ceiling analysis
+- Insolvency Model with forecasts
+- Optimized codebase
+- ROI validation report
+
+---
+
+## 7. Success Metrics
+
+- ✅ **Capacity Recovery:** {fte_recovery:.1f} FTEs regained
+- ✅ **Heat Tax Eliminated:** 27% performance penalty removed
+- ✅ **Hotfixes Reduced:** From 5+/month to 0
+- ✅ **ROI Achieved:** 13.3-month payback period
+- ✅ **Insolvency Avoided:** System remains above 85% capacity
+
+---
+
+## 8. Next Steps
+
+1. **Approve Optimization Sprint:** 4-week hard boundary, binary priority
+2. **Defer Features:** Protect ROI by deferring [Feature List]
+3. **Measure Results:** Track capacity recovery and ROI validation
+4. **Scale Success:** Apply framework to other systems
+
+---
+
+**Prepared by:** [Your Name]  
+**Date:** {datetime.now().strftime('%Y-%m-%d')}  
+**Status:** Ready for VP/CTO Review
+"""
+
+
+def _generate_linkedin_bio() -> str:
+    """Generate LinkedIn headline and bio."""
+    return """# 🔗 LinkedIn Profile Content
+
+## Headline
+
+Founder, Engineering Architect Program | Recovering 15% FTE Capacity via Silicon ROI Math
+
+---
+
+## Bio
+
+I teach engineers how to stop living on Technical Payday Loans. My 8‑week framework turns junior developers into System Architects who lead with hard ROI math, not opinions.
+
+Using my power‑benchmark suite, we quantify the 27% Heat Tax and model Insolvency Timelines to prove that great code doesn't just work—it pays for itself.
+
+**What I teach:**
+- The Law of 80% (Heat Tax): Why running at 100% is actually 27% slower
+- The 4,368% APR Loan: How skipping optimization bankrupts projects in 8 weeks
+- The Shield of Accountability: Objective refusal scripts that protect ROI
+- The Salesman's Dictionary: Translating technical concepts into business language
+
+**The Result:**
+Engineers who can prove their code pays for itself with hard ROI math, not opinions.
+
+**Join the 2026 Engineering Architect Program** and learn how to write code that pays for itself.
+
+---
+
+## Key Points for Profile
+
+- **Value Proposition:** Transform from "cost center" to "profit center"
+- **Unique Angle:** ROI math, not just code quality
+- **Proof:** 13.3-month ROI, 15% FTE recovery, 0 hotfixes
+- **Analogy:** Technical Payday Loan → Sustainable Engineering
+
+---
+
+## Call to Action
+
+"Stop living on Technical Payday Loans. Start building code that pays for itself."
+
+[Link to course/program]
+"""
 
