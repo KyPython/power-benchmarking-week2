@@ -67,6 +67,33 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Deploying version: $VERSION"
 
+      - name: Run production readiness checks
+        run: |
+          echo "🔍 Production Readiness Gate - Pre-Deployment Checks"
+          echo "=================================================="
+          
+          # Syntax check
+          echo -n "Syntax validation: "
+          python3 -m py_compile power_benchmarking_suite/**/*.py scripts/**/*.py && echo "✅" || (echo "❌" && exit 1)
+          
+          # Formatting check
+          echo -n "Code formatting: "
+          black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/ && echo "✅" || (echo "❌" && exit 1)
+          
+          # Documentation check
+          echo -n "Documentation match: "
+          python scripts/verify_documentation_match.py && echo "✅" || (echo "❌" && exit 1)
+          
+          # Dependency check
+          echo -n "Dependencies valid: "
+          python scripts/check_dependencies.py && echo "✅" || (echo "❌" && exit 1)
+          
+          # CLI check
+          echo -n "CLI commands: "
+          power-benchmark --help > /dev/null && echo "✅" || (echo "❌" && exit 1)
+          
+          echo "✅ All production readiness checks passed"
+      
       - name: Run pre-flight checks
         run: |
           echo "Running pre-flight checks..."

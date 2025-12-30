@@ -1,0 +1,247 @@
+name: Production Readiness Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_dispatch:
+    inputs:
+      feature_name:
+        description: 'Feature name to check'
+        required: false
+        type: string
+
+jobs:
+  production-readiness-check:
+    name: Production Readiness Gate
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+        pip install pytest pytest-cov black flake8 mypy bandit safety
+    
+    - name: Feature Readiness Checklist
+      id: checklist
+      run: |
+        echo "🔍 Production Readiness Gate - Feature Checklist"
+        echo "================================================"
+        echo ""
+        
+        # Initialize checklist results
+        ALL_PASSED=true
+        
+        # 1. Code Quality Checks
+        echo "1️⃣ Code Quality Checks"
+        echo "----------------------"
+        
+        echo -n "  [ ] Syntax validation: "
+        if python3 -m py_compile power_benchmarking_suite/**/*.py scripts/**/*.py 2>&1 | grep -q "SyntaxError"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "syntax_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo -n "  [ ] Code formatting (Black): "
+        if black --check --line-length 100 power_benchmarking_suite/ scripts/ tests/ 2>&1 | grep -q "would reformat"; then
+          echo "❌ FAILED (needs formatting)"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "formatting_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo -n "  [ ] Linting (flake8): "
+        if flake8 power_benchmarking_suite/ scripts/ tests/ --max-line-length=100 --extend-ignore=E203,W503 --count --statistics 2>&1 | grep -qE "^[0-9]+"; then
+          echo "⚠️  WARNINGS (non-blocking)"
+          echo "linting_check=warnings" >> $GITHUB_OUTPUT
+        else
+          echo "✅ PASSED"
+          echo "linting_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 2. Documentation Checks
+        echo "2️⃣ Documentation Checks"
+        echo "----------------------"
+        
+        echo -n "  [ ] Documentation matches codebase: "
+        if python scripts/verify_documentation_match.py 2>&1 | grep -q "FAILED\|Error"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "docs_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo -n "  [ ] Study guide updated: "
+        if python scripts/check_study_guide_update.py --warn-days 30 2>&1 | grep -q "Warning\|Error"; then
+          echo "⚠️  WARNING (should be updated)"
+          echo "study_guide_check=warning" >> $GITHUB_OUTPUT
+        else
+          echo "✅ PASSED"
+          echo "study_guide_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 3. Security Checks
+        echo "3️⃣ Security Checks"
+        echo "----------------------"
+        
+        echo -n "  [ ] Security scan (Bandit): "
+        if bandit -r power_benchmarking_suite/ scripts/ -f json -o /tmp/bandit.json 2>&1 | grep -q "HIGH\|CRITICAL"; then
+          echo "❌ FAILED (high/critical issues found)"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "security_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo -n "  [ ] Dependency vulnerabilities: "
+        if safety check --json 2>&1 | grep -qE '"vulnerabilities":\s*\[[^]]+\]'; then
+          echo "⚠️  WARNINGS (check output)"
+          echo "deps_check=warnings" >> $GITHUB_OUTPUT
+        else
+          echo "✅ PASSED"
+          echo "deps_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 4. Test Coverage
+        echo "4️⃣ Test Coverage"
+        echo "----------------------"
+        
+        echo -n "  [ ] Tests run successfully: "
+        if [ -d "tests" ] && pytest tests/ -v --tb=short 2>&1 | grep -q "FAILED\|ERROR"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        elif [ -d "tests" ]; then
+          echo "✅ PASSED"
+          echo "tests_check=passed" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️  NO TESTS (recommended but not blocking)"
+          echo "tests_check=missing" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 5. CLI Functionality
+        echo "5️⃣ CLI Functionality"
+        echo "----------------------"
+        
+        echo -n "  [ ] CLI imports successfully: "
+        if python -c "from power_benchmarking_suite.cli import main" 2>&1 | grep -q "Error\|ImportError"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "cli_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo -n "  [ ] All commands registered: "
+        COMMANDS=("monitor" "analyze" "optimize" "config" "quickstart" "validate" "business" "marketing" "schedule" "help")
+        MISSING_COMMANDS=""
+        for cmd in "${COMMANDS[@]}"; do
+          if ! power-benchmark $cmd --help &>/dev/null; then
+            MISSING_COMMANDS="$MISSING_COMMANDS $cmd"
+          fi
+        done
+        if [ -n "$MISSING_COMMANDS" ]; then
+          echo "❌ FAILED (missing: $MISSING_COMMANDS)"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "commands_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 6. Compatibility Check
+        echo "6️⃣ Compatibility Check"
+        echo "----------------------"
+        
+        echo -n "  [ ] System compatibility (mock): "
+        if power-benchmark validate --headless --mock 2>&1 | grep -q "FAILED\|Error"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "compatibility_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        
+        # 7. Dependency Checks
+        echo "7️⃣ Dependency Checks"
+        echo "----------------------"
+        
+        echo -n "  [ ] Production dependencies valid: "
+        if python scripts/check_dependencies.py 2>&1 | grep -q "Error\|FAILED"; then
+          echo "❌ FAILED"
+          ALL_PASSED=false
+        else
+          echo "✅ PASSED"
+          echo "deps_valid_check=passed" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        echo "================================================"
+        
+        if [ "$ALL_PASSED" = true ]; then
+          echo "✅ PRODUCTION READY: All critical checks passed"
+          echo "production_ready=true" >> $GITHUB_OUTPUT
+          exit 0
+        else
+          echo "❌ NOT PRODUCTION READY: Some critical checks failed"
+          echo "production_ready=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+    
+    - name: Generate Readiness Report
+      if: always()
+      run: |
+        echo "## 📊 Production Readiness Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ steps.checklist.outputs.production_ready == 'true' && '✅ PRODUCTION READY' || '❌ NOT PRODUCTION READY' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Syntax: ${{ steps.checklist.outputs.syntax_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Formatting: ${{ steps.checklist.outputs.formatting_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation: ${{ steps.checklist.outputs.docs_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security: ${{ steps.checklist.outputs.security_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Tests: ${{ steps.checklist.outputs.tests_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- CLI: ${{ steps.checklist.outputs.cli_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Compatibility: ${{ steps.checklist.outputs.compatibility_check }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ steps.checklist.outputs.production_ready }}" != "true" ]; then
+          echo "1. Fix failing checks above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Re-run this workflow" >> $GITHUB_STEP_SUMMARY
+          echo "3. Once all checks pass, merge to main" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ All checks passed! Ready to merge to main and deploy." >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Block PR if not ready
+      if: |
+        github.event_name == 'pull_request' &&
+        steps.checklist.outputs.production_ready != 'true'
+      run: |
+        echo "::error::Production readiness gate failed. Please fix the issues above before merging."
+        exit 1
+
