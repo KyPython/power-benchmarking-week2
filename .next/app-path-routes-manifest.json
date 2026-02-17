@@ -1,13 +1,16 @@
 {
-  "/api/checkout/route": "/api/checkout",
   "/_not-found/page": "/_not-found",
+  "/api/checkout/route": "/api/checkout",
   "/api/activate/route": "/api/activate",
+  "/api/device-codes/[code]/route": "/api/device-codes/[code]",
   "/api/entitlement/route": "/api/entitlement",
   "/api/device-codes/route": "/api/device-codes",
+  "/api/products/route": "/api/products",
+  "/api/products/sync/route": "/api/products/sync",
   "/api/sync/route": "/api/sync",
   "/api/send-activation-email/route": "/api/send-activation-email",
   "/api/webhooks/polar/route": "/api/webhooks/polar",
-  "/api/device-codes/[code]/route": "/api/device-codes/[code]",
+  "/success/page": "/success",
   "/activate/page": "/activate",
-  "/success/page": "/success"
+  "/page": "/"
 }
