@@ -15,13 +15,25 @@ function ActivateContent() {
   const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
-    if (code) {
-      checkCode();
-    } else {
-      // No code provided - redirect to landing page instead of showing error
+    if (!code) {
+      // No code provided - redirect to landing page immediately
       router.replace('/pricing.html');
+      return;
     }
+    checkCode();
   }, [code, router]);
+
+  // Don't render anything if no code - redirect is happening
+  if (!code) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={styles.spinner}></div>
+          <p>Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   async function handleResendCode() {
     const userEmail = prompt('Please enter your email address to resend the activation code:');
