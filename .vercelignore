@@ -33,7 +33,6 @@ Dockerfile
 docker-compose.yml
 .pre-commit-config.yaml
 
-# Only deploy docs/ directory
-!docs/
-
-
+# (Previously this file forced only docs/ to be deployed.)
+# For the Next.js + API setup, we now deploy the whole project,
+# so we do NOT restrict deployment to docs/ anymore.
