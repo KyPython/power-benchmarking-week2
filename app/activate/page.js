@@ -109,35 +109,6 @@ function ActivateContent() {
     );
   }
 
-  async function handleResendCode() {
-    const userEmail = prompt('Please enter your email address to resend the activation code:');
-    if (!userEmail) return;
-    
-    setResendLoading(true);
-    setResendStatus(null);
-    
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-      const res = await fetch(`${baseUrl}/api/activation-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail })
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        setResendStatus({ type: 'success', message: 'Activation code resent! Check your email.' });
-      } else {
-        setResendStatus({ type: 'error', message: data.error || 'Failed to resend code' });
-      }
-    } catch (err) {
-      setResendStatus({ type: 'error', message: 'Failed to resend activation code' });
-    } finally {
-      setResendLoading(false);
-    }
-  }
-
   if (status === 'error') {
     return (
       <div style={styles.container}>
