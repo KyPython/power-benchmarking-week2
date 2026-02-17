@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Power Benchmarking Suite Pricing - Choose the plan that fits your needs">
+    <title>Pricing | Power Benchmarking Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #007AFF;
+            --primary-dark: #0051D5;
+            --secondary: #5856D6;
+            --success: #34C759;
+            --text: #1D1D1F;
+            --text-light: #86868B;
+            --bg: #FFFFFF;
+            --bg-light: #F5F5F7;
+            --border: #D2D2D7;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text);
+            line-height: 1.6;
+            background: var(--bg);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.8);
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+        
+        .cta-button {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .cta-button:hover {
+            background: var(--primary-dark);
+        }
+        
+        /* Hero Section */
+        .pricing-hero {
+            padding: 80px 0 60px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .pricing-hero h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .pricing-hero p {
+            font-size: 20px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        /* Pricing Cards */
+        .pricing-section {
+            padding: 100px 0;
+            background: var(--bg-light);
+        }
+        
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+        
+        .pricing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+        
+        .pricing-card.featured {
+            border: 2px solid var(--primary);
+            transform: scale(1.05);
+        }
+        
+        .pricing-card.featured::before {
+            content: "Most Popular";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 6px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .plan-name {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+        
+        .plan-description {
+            color: var(--text-light);
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .plan-price {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        
+        .plan-price .period {
+            font-size: 18px;
+            color: var(--text-light);
+            font-weight: 400;
+        }
+        
+        .plan-price.custom {
+            font-size: 32px;
+        }
+        
+        .plan-button {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            text-align: center;
+            margin-top: 30px;
+            transition: all 0.3s;
+        }
+        
+        .plan-button.primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .plan-button.primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
+        
+        .plan-button.secondary {
+            background: var(--bg-light);
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+        
+        .plan-button.secondary:hover {
+            background: white;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .plan-button.enterprise {
+            background: var(--text);
+            color: white;
+        }
+        
+        .plan-button.enterprise:hover {
+            background: #333;
+        }
+        
+        .features-list {
+            list-style: none;
+            margin-top: 30px;
+            flex-grow: 1;
+        }
+        
+        .features-list li {
+            padding: 12px 0;
+            color: var(--text);
+            display: flex;
+            align-items: start;
+            gap: 12px;
+        }
+        
+        .features-list li::before {
+            content: "✓";
+            color: var(--success);
+            font-weight: 700;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-size: 18px;
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+        
+        /* Comparison Section */
+        .comparison-section {
+            padding: 100px 0;
+            background: var(--bg);
+        }
+        
+        .comparison-table {
+            overflow-x: auto;
+            margin-top: 40px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        thead {
+            background: var(--bg-light);
+        }
+        
+        th {
+            padding: 20px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        th:first-child {
+            font-weight: 700;
+        }
+        
+        td {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text);
+        }
+        
+        .check {
+            color: var(--success);
+            font-weight: 700;
+            font-size: 20px;
+        }
+        
+        .dash {
+            color: var(--text-light);
+        }
+        
+        /* CTA Section */
+        .cta-section {
+            padding: 100px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        
+        .cta-section h2 {
+            font-size: 42px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 20px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            display: inline-block;
+            background: white;
+            color: var(--primary);
+            padding: 16px 32px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--primary);
+            border: 2px solid white;
+            padding: 16px 32px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .trial-info {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 12px;
+            font-weight: 400;
+        }
+        
+        .hero-buttons > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--text);
+            color: white;
+            padding: 60px 0 30px;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .footer-section h3 {
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        .footer-section a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+            transition: color 0.3s;
+        }
+        
+        .footer-section a:hover {
+            color: white;
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        @media (max-width: 768px) {
+            .pricing-hero h1 {
+                font-size: 36px;
+            }
+            
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+            
+            .nav-links {
+                display: none;
+            }
+            
+            .comparison-table {
+                overflow-x: scroll;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="/" class="logo">⚡ Power Benchmarking Suite</a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#docs">Documentation</a></li>
+                <li><a href="/pricing">Pricing</a></li>
+                <li><a href="https://github.com/KyPython/power-benchmarking-week2">GitHub</a></li>
+            </ul>
+            <a href="/#install" class="cta-button">Get Started</a>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="pricing-hero">
+        <div class="container">
+            <h1>Choose Your Plan</h1>
+            <p>Select the perfect plan for your Apple Silicon optimization needs</p>
+        </div>
+    </section>
+
+    <!-- Pricing Cards -->
+    <section class="pricing-section">
+        <div class="container">
+            <h2 class="section-title">Pricing Plans</h2>
+            <p class="section-subtitle">All plans include core power monitoring and real-time analytics</p>
+            
+            <div class="pricing-grid">
+                <!-- Free Tier -->
+                <div class="pricing-card">
+                    <div class="plan-name">Free</div>
+                    <div class="plan-description">Perfect for individual developers and students</div>
+                    <div class="plan-price">$0<span class="period">/forever</span></div>
+                    <a href="https://buy.polar.sh/polar_cl_zzpA4nUb1IOqkzJ3kgybbPi8hLnuglo39x9lB1a3dyO" class="plan-button secondary">Get Started Free</a>
+                    <ul class="features-list">
+                        <li>Single device monitoring</li>
+                        <li>Up to 1 hour per session</li>
+                        <li>Basic power metrics</li>
+                        <li>Standard visualizations</li>
+                        <li>Real-time power monitoring</li>
+                        <li>Community support</li>
+                    </ul>
+                </div>
+
+                <!-- Premium Tier -->
+                <div class="pricing-card featured">
+                    <div class="plan-name">Premium</div>
+                    <div class="plan-description">For professional developers and small teams</div>
+                    <div class="plan-price">$99<span class="period">/month</span></div>
+                    <div style="font-size: 14px; color: var(--text-light); margin-bottom: 20px;">14-day free trial • Credit card required</div>
+                    <a href="/api/checkout?plan=premium" class="plan-button primary">Start Free Trial</a>
+                    <ul class="features-list">
+                        <li>Up to 10 devices</li>
+                        <li>Up to 24 hours per session</li>
+                        <li>Advanced analytics</li>
+                        <li>Energy Gap + Attribution</li>
+                        <li>Cloud sync</li>
+                        <li>Team collaboration</li>
+                        <li>API access</li>
+                        <li>Sustainability reports</li>
+                        <li>Priority support</li>
+                    </ul>
+                </div>
+
+                <!-- Enterprise Tier -->
+                <div class="pricing-card">
+                    <div class="plan-name">Enterprise</div>
+                    <div class="plan-description">For large teams and organizations</div>
+                    <div class="plan-price">$500<span class="period">/month</span></div>
+                    <a href="https://buy.polar.sh/polar_cl_VJuz8pIYuEAuWcEt5wHetBfn3O3WB9fFqcrTI0fmvJN" class="plan-button enterprise">Buy Enterprise</a>
+                    <ul class="features-list">
+                        <li>Unlimited devices</li>
+                        <li>Unlimited session duration</li>
+                        <li>On-premise deployment</li>
+                        <li>Custom integrations</li>
+                        <li>Dedicated support</li>
+                        <li>Training and consulting</li>
+                        <li>SLA guarantees</li>
+                        <li>Custom analytics</li>
+                        <li>White-label options</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature Comparison -->
+    <section class="comparison-section">
+        <div class="container">
+            <h2 class="section-title">Feature Comparison</h2>
+            <p class="section-subtitle">Compare features across all plans</p>
+            
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Free</th>
+                            <th>Premium</th>
+                            <th>Enterprise</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Devices</strong></td>
+                            <td>1</td>
+                            <td>10</td>
+                            <td>Unlimited</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Session Duration</strong></td>
+                            <td>1 hour</td>
+                            <td>24 hours</td>
+                            <td>Unlimited</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Real-Time Power Monitoring</strong></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Basic Power Metrics</strong></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Standard Visualizations</strong></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Advanced Analytics</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Energy Gap Framework</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Statistical Attribution</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cloud Sync</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Team Collaboration</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>API Access</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sustainability Reports</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>On-Premise Deployment</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Custom Integrations</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dedicated Support</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Training & Consulting</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>SLA Guarantees</strong></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="dash">—</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Support</strong></td>
+                            <td>Community</td>
+                            <td>Priority</td>
+                            <td>Dedicated</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Ready to optimize your Apple Silicon apps?</h2>
+            <p>Join developers achieving 4.5x energy efficiency improvements</p>
+            <div class="hero-buttons">
+                <div>
+                    <a href="/api/checkout?plan=premium" class="btn-primary">Start Free Trial</a>
+                    <div class="trial-info">14-day free trial • Credit card required</div>
+                </div>
+                <a href="mailto:kyjahntsmith@gmail.com" class="btn-secondary">Contact Sales</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Product</h3>
+                    <a href="/#features">Features</a>
+                    <a href="https://github.com/KyPython/power-benchmarking-week2#readme">Documentation</a>
+                    <a href="/pricing">Pricing</a>
+                    <a href="https://github.com/KyPython/power-benchmarking-week2/releases">Releases</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Resources</h3>
+                    <a href="https://github.com/KyPython/power-benchmarking-week2">GitHub</a>
+                    <a href="https://github.com/KyPython/power-benchmarking-week2/issues">Issues</a>
+                    <a href="https://github.com/KyPython/power-benchmarking-week2/discussions">Discussions</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Contact</h3>
+                    <a href="mailto:kyjahntsmith@gmail.com">Email</a>
+                    <a href="https://github.com/KyPython">GitHub Profile</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Power Benchmarking Suite. MIT License.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
