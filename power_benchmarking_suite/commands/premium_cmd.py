@@ -7,13 +7,15 @@ Usage:
     power-benchmark premium enable-test
     power-benchmark premium login --token <TOKEN>
     power-benchmark premium verify
-    power-benchmark premium upgrade
+    power-benchmark premium upgrade [--open] [--url <CHECKOUT_URL>]
 """
 
 import argparse
 import json
 from pathlib import Path
 import logging
+import os
+import webbrowser
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,9 @@ def add_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParse
     p_verify = sub.add_parser("verify", help="Verify entitlement via Polar API")
     p_verify.set_defaults(premium_action="verify")
 
-    p_upgrade = sub.add_parser("upgrade", help="Show upgrade instructions")
+    p_upgrade = sub.add_parser("upgrade", help="Show upgrade instructions / open checkout")
+    p_upgrade.add_argument("--open", action="store_true", help="Open checkout/pricing URL in browser")
+    p_upgrade.add_argument("--url", help="Checkout/pricing URL to open")
     p_upgrade.set_defaults(premium_action="upgrade")
 
     parser.set_defaults(func=run)
@@ -76,6 +80,7 @@ def run(args: argparse.Namespace, config=None) -> int:
                 print(f"  - {k}: {'ENABLED' if v else 'DISABLED'}")
         else:
             print("Free tier limits: 1 device, 1 hour/session, basic analytics")
+            print("Upgrade: power-benchmark premium upgrade --open")
         return 0
     elif action == "enable-test":
         data = {
@@ -112,10 +117,24 @@ def run(args: argparse.Namespace, config=None) -> int:
             print(f"⚠️ Verification error: {e}")
             return 1
     elif action == "upgrade":
+        # Prefer explicit URL, then config, then env
+        status = _read_status()
+        lic = (status or {}).get("licensing") or {}
+        url = getattr(args, "url", None) or lic.get("checkout_url") or os.getenv("POLAR_CHECKOUT_URL") or os.getenv("POLAR_PRICING_URL")
         print("Upgrade via Polar/Stripe:")
-        print("  1) Visit your Polar checkout page")
-        print("  2) After purchase, run: power-benchmark premium login --token <TOKEN>")
-        print("  3) Then: power-benchmark premium status")
+        print("  - Complete checkout to enable premium")
+        if url:
+            print(f"  - Checkout URL: {url}")
+            if getattr(args, "open", False):
+                try:
+                    webbrowser.open(url)
+                    print("🌐 Opening browser to checkout…")
+                except Exception:
+                    print("⚠️ Unable to open browser; copy the URL above")
+        else:
+            print("  - Provide a URL with --url or set POLAR_CHECKOUT_URL/POLAR_PRICING_URL")
+        print("After purchase:")
+        print("  power-benchmark premium login --token <polar_oat_…> && power-benchmark premium verify")
         return 0
     else:
         print("Specify an action: status | enable-test | login | verify | upgrade")

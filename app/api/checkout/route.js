@@ -1,4 +1,3 @@
-// Polar Checkout route (Next.js App Router style)
 import { Checkout } from "@polar-sh/nextjs";
 
 export const GET = Checkout({
