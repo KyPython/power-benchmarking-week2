@@ -37,6 +37,8 @@ from power_benchmarking_suite.commands import (
     schedule,
 )
 from power_benchmarking_suite.commands import help_cmd
+from power_benchmarking_suite.commands import premium_cmd
+from power_benchmarking_suite.commands import usage_cmd
 
 # Import config manager
 from power_benchmarking_suite.config import get_config_manager
@@ -82,6 +84,10 @@ For more information, see QUICK_START_GUIDE.md
     parser.add_argument("--version", action="version", version="%(prog)s 1.0.0")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    # Premium flags (top-level shortcuts)
+    parser.add_argument("--premium-status", action="store_true", help="Show premium status")
+    parser.add_argument("--upgrade", action="store_true", help="Show upgrade instructions")
+    parser.add_argument("--enable-premium-test", action="store_true", help="Enable local premium test mode")
 
     # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Command to execute", metavar="COMMAND")
@@ -97,9 +103,27 @@ For more information, see QUICK_START_GUIDE.md
     marketing.add_parser(subparsers)
     schedule.add_parser(subparsers)
     help_cmd.add_parser(subparsers)
+    premium_cmd.add_parser(subparsers)
+    usage_cmd.add_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()
+
+    # Handle premium flags early
+    if getattr(args, "premium_status", False) or getattr(args, "upgrade", False) or getattr(args, "enable_premium_test", False):
+        try:
+            # Reuse premium command handlers
+            class A: pass
+            a = A()
+            if getattr(args, "premium_status", False):
+                a.premium_action = "status"
+            elif getattr(args, "enable_premium_test", False):
+                a.premium_action = "enable-test"
+            else:
+                a.premium_action = "upgrade"
+            return premium_cmd.run(a, None)
+        except Exception as e:
+            logger.error(f"Premium flag handling failed: {e}")
 
     # Set logging level
     if args.verbose:

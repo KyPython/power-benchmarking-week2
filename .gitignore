@@ -101,3 +101,9 @@ plans/GTM_STRATEGY.md
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .cursor/rules/snyk_rules.mdc
+social/linkedin_carousel/*.png
+social/linkedin_carousel/*.jpg
+social/linkedin_carousel/*.pdf
+social/linkedin_carousel/*.zip
+social/linkedin_carousel/caption.txt
+social/linkedin_carousel/linkedin_post_caption.txt

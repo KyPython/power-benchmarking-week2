@@ -81,30 +81,32 @@ def get_tracer(name: str) -> Optional[object]:
 def trace_span(tracer, name: str, attributes: Optional[dict] = None):
     """
     Context manager for creating spans.
-
-    Args:
-        tracer: Tracer instance
-        name: Span name
-        attributes: Optional span attributes
-
-    Yields:
-        Span instance
     """
     if not tracer:
         yield None
         return
 
-    span = tracer.start_as_current_span(name)
-    if attributes:
-        for key, value in attributes.items():
-            span.set_attribute(key, value)
-
+    # start_as_current_span returns a context manager; enter it to get a Span
+    from opentelemetry.trace import Status, StatusCode  # type: ignore
     try:
-        yield span
-    except Exception as e:
-        span.record_exception(e)
-        span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-        raise
-    finally:
-        span.end()
+        with tracer.start_as_current_span(name) as span:
+            if attributes:
+                for key, value in attributes.items():
+                    try:
+                        span.set_attribute(key, value)
+                    except Exception:
+                        pass
+            try:
+                yield span
+            except Exception as e:
+                try:
+                    span.record_exception(e)
+                    span.set_status(Status(StatusCode.ERROR, str(e)))
+                except Exception:
+                    pass
+                raise
+    except Exception:
+        # If tracing fails, yield None to avoid breaking execution
+        yield None
+        return
 

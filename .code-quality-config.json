@@ -1,0 +1,86 @@
+{
+  "version": "1.0.0",
+  "description": "Power Benchmarking Suite Code Quality Configuration",
+  "rules": {
+    "longFunction": {
+      "enabled": true,
+      "threshold": 50,
+      "severity": "medium",
+      "description": "Functions exceeding 50 lines should be refactored into smaller, focused functions"
+    },
+    "largeFile": {
+      "enabled": true,
+      "threshold": 500,
+      "severity": "high",
+      "description": "Files exceeding 500 lines are harder to maintain and should be split",
+      "exceptions": [
+        "power_benchmarking_suite/cli.py",
+        "scripts/unified_benchmark.py",
+        "**/*.config.js",
+        "**/migrations/*.sql"
+      ]
+    },
+    "todoDensity": {
+      "enabled": true,
+      "threshold": 5,
+      "severity": "low",
+      "description": "High TODO/FIXME density indicates incomplete work or technical debt"
+    },
+    "complexity": {
+      "enabled": true,
+      "maxCyclomaticComplexity": 10,
+      "severity": "medium",
+      "description": "Functions with high cyclomatic complexity are hard to test and maintain"
+    },
+    "duplicateCode": {
+      "enabled": true,
+      "minLines": 10,
+      "severity": "medium",
+      "description": "Duplicate code blocks should be extracted into reusable functions"
+    },
+    "unusedImports": {
+      "enabled": true,
+      "severity": "low",
+      "description": "Unused imports add noise and should be removed"
+    },
+    "printStatements": {
+      "enabled": true,
+      "severity": "medium",
+      "description": "print() statements should be replaced with proper logging",
+      "exceptions": [
+        "**/*test*.py",
+        "**/test_*.py",
+        "scripts/**"
+      ]
+    },
+    "hardcodedValues": {
+      "enabled": true,
+      "severity": "high",
+      "description": "Hardcoded URLs, API keys, and magic numbers should use environment variables or config"
+    }
+  },
+  "include": [
+    "power_benchmarking_suite/**/*.py",
+    "scripts/**/*.py"
+  ],
+  "exclude": [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/dist/**",
+    "**/build/**",
+    "**/*test*.py",
+    "**/test_*.py",
+    "**/tests/**",
+    "**/.git/**",
+    "**/venv/**",
+    "**/env/**",
+    "**/.venv/**"
+  ],
+  "reporting": {
+    "format": ["json", "text"],
+    "outputDir": "reports/quality",
+    "trackHistory": true
+  }
+}
+
+

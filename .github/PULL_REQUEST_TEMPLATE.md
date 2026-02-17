@@ -1,28 +1,15 @@
-# Pull Request
+## Summary
+Describe the change and why.
 
-## Description
-Brief description of changes
+## Changes
+- 
 
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
+## Checks
+- [ ] Ran local pre-commit and pre-push checks
+- [ ] Lint passes
+- [ ] Tests pass (or N/A)
+- [ ] Docs updated (README / EASYFLOW-ADOPTION)
+- [ ] Rockefeller compliance check run
 
-## Testing
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Comments added for complex code
-- [ ] Documentation updated
-- [ ] No new warnings generated
-- [ ] Tests added/updated
-
-## Related Issues
-Closes #
-
-
+## Linked Issues
+Fixes #

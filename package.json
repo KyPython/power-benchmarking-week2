@@ -1,0 +1,26 @@
+{
+  "name": "power-benchmarking-suite",
+  "version": "1.0.0",
+  "description": "Power Benchmarking Suite - Comprehensive toolkit for monitoring, analyzing, and visualizing power consumption on Apple Silicon Macs",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'",
+    "start": "echo 'Static site deployed'"
+  },
+  "keywords": [
+    "power",
+    "benchmarking",
+    "apple-silicon",
+    "coreml",
+    "energy-efficiency"
+  ],
+  "author": "Ky Smith <kyjahntsmith@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KyPython/power-benchmarking-week2"
+  },
+  "dependencies": {
+    "vercel": "^50.17.0"
+  }
+}

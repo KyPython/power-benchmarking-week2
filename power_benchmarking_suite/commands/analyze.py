@@ -16,6 +16,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from ..premium import get_premium_features
+
 # Import existing scripts
 SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts"
 
@@ -105,6 +107,13 @@ def _analyze_app(args: argparse.Namespace, config: Optional[dict] = None) -> int
     # Continue with existing implementation...
     """Analyze application power consumption."""
     try:
+        # Enforce premium for advanced analytics flag
+        if args.advanced:
+            premium = get_premium_features()
+            if not premium.advanced_analytics_enabled():
+                print("❌ Advanced analytics is a premium feature. Run: power-benchmark premium upgrade")
+                return 1
+
         script_path = SCRIPTS_DIR / "app_power_analyzer.py"
 
         if not script_path.exists():
@@ -113,10 +122,6 @@ def _analyze_app(args: argparse.Namespace, config: Optional[dict] = None) -> int
 
         cmd = ["sudo", "python3", str(script_path), args.app_name]
         cmd.extend(["--duration", str(args.duration)])
-
-        # Note: --advanced flag not yet supported by app_power_analyzer.py
-        # if args.advanced:
-        #     cmd.append("--advanced")
 
         logger.info(f"Analyzing application: {args.app_name}")
         result = subprocess.run(cmd, check=False)
@@ -130,6 +135,13 @@ def _analyze_app(args: argparse.Namespace, config: Optional[dict] = None) -> int
 def _analyze_csv(args: argparse.Namespace, config: Optional[dict] = None) -> int:
     """Analyze CSV power data."""
     try:
+        # Enforce premium for advanced analytics flag
+        if args.advanced:
+            premium = get_premium_features()
+            if not premium.advanced_analytics_enabled():
+                print("❌ Advanced analytics is a premium feature. Run: power-benchmark premium upgrade")
+                return 1
+
         csv_path = Path(args.csv_file)
         if not csv_path.exists():
             logger.error(f"CSV file not found: {csv_path}")
@@ -145,10 +157,6 @@ def _analyze_csv(args: argparse.Namespace, config: Optional[dict] = None) -> int
 
         if args.output:
             cmd.extend(["--output", args.output])
-
-        # Note: --advanced flag not yet supported by power_visualizer.py
-        # if args.advanced:
-        #     cmd.append("--advanced")
 
         logger.info(f"Analyzing CSV file: {csv_path}")
         result = subprocess.run(cmd, check=False)

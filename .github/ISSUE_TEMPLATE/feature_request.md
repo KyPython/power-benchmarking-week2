@@ -1,24 +1,17 @@
 ---
-name: Feature Request
-about: Suggest an idea for this project
-title: '[FEATURE] '
+name: Feature request
+title: "Feature: "
 labels: enhancement
-assignees: ''
+assignees: 
 ---
 
-## Feature Description
-A clear and concise description of the feature.
+### Problem
 
-## Use Case
-Why is this feature needed? What problem does it solve?
+### Proposal
 
-## Proposed Solution
-How should this feature work?
+### Acceptance criteria
+- [ ] 
 
-## Alternatives Considered
-Other solutions you've considered.
+### Metrics / Impact
 
-## Additional Context
-Add any other context, mockups, or examples.
-
-
+### Additional context

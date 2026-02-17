@@ -32,6 +32,7 @@ except ImportError:
 # Import error handling
 from ..errors import PowerMetricsPermissionError
 from ..utils.error_handler import check_powermetrics_availability, format_error_for_user
+from ..premium import get_premium_features
 
 # Import existing scripts
 SCRIPTS_DIR = Path(__file__).parent.parent.parent / "scripts"
@@ -98,6 +99,22 @@ def run(args: argparse.Namespace, config: Optional[dict] = None) -> int:
                 except Exception as e:
                     logger.warning(f"Could not load thermal feedback: {e}")
 
+            # Enforce free tier limits
+            premium = get_premium_features()
+            if not premium.is_premium():
+                # Limit test runs to <= 3600 seconds
+                if args.test and args.test > 3600:
+                    print("⚠️ Free tier limited to 1 hour per session. Clamping test to 3600s.")
+                    args.test = 3600
+                # Limit duration hours to <= 1
+                if args.duration and args.duration > 1:
+                    print("⚠️ Free tier limited to 1 hour per session. Use --duration 1 or upgrade.")
+                    return 1
+                # If running indefinitely, set duration to 1 hour
+                if not args.test and not args.duration:
+                    print("ℹ️ Free tier: limiting run to 1 hour. Upgrade for unlimited runs.")
+                    args.duration = 1
+
             # Build command for unified_benchmark.py
             script_path = SCRIPTS_DIR / "unified_benchmark.py"
 
@@ -148,6 +165,18 @@ def run(args: argparse.Namespace, config: Optional[dict] = None) -> int:
             # Run the script
             logger.info("Executing unified_benchmark.py", extra={"command": " ".join(cmd)})
             result = subprocess.run(cmd, check=False, env=env)
+
+            # Record usage locally
+            try:
+                from ..usage import record_session
+                secs = 0
+                if args.test:
+                    secs = int(args.test)
+                elif args.duration:
+                    secs = int(float(args.duration) * 3600)
+                record_session("monitor", secs, success=(result.returncode == 0))
+            except Exception:
+                pass
 
             if result.returncode != 0:
                 logger.error("Monitor command failed", extra={"exit_code": result.returncode})
