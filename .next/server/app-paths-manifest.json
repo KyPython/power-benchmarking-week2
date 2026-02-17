@@ -1,3 +1,4 @@
 {
-  "/activate/page": "app/activate/page.js"
+  "/api/checkout/route": "app/api/checkout/route.js",
+  "/api/webhooks/polar/route": "app/api/webhooks/polar/route.js"
 }

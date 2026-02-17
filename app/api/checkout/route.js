@@ -14,7 +14,29 @@ export async function GET(request) {
   const successUrl = searchParams.get('success_url') || process.env.POLAR_SUCCESS_URL || `${process.env.NEXT_PUBLIC_BASE_URL || 'https://power-benchmarking-week2.vercel.app'}/success`;
   const customerEmail = searchParams.get('email');
 
-  // Try to get product from database
+  // Map plan to direct checkout URL (pre-built checkout pages)
+  const planToUrl = {
+    free: process.env.POLAR_FREE_URL,
+    premium: process.env.POLAR_PREMIUM_URL,
+    enterprise: process.env.POLAR_ENTERPRISE_URL,
+  };
+
+  const directUrl = planToUrl[plan];
+
+  if (directUrl) {
+    // For direct checkout URLs, use a simple success URL
+    // Polar will redirect here after payment
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '') || 'https://power-benchmarking-week2.vercel.app';
+    const baseSuccessUrl = `${baseUrl}/success`;
+    const checkoutUrl = `${directUrl}?success_url=${encodeURIComponent(baseSuccessUrl)}${customerEmail ? `&customer_email=${encodeURIComponent(customerEmail)}` : ''}`;
+    return NextResponse.json({
+      checkoutUrl,
+      plan,
+      usingDirectUrl: true,
+    });
+  }
+
+  // Fallback: Try to get product from database
   let productId = process.env.POLAR_DEFAULT_PRODUCT_ID;
   
   try {

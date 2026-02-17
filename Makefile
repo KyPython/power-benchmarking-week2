@@ -27,7 +27,14 @@ validate:
 quality: validate
 
 test:
-	pytest tests/ -v
+	pytest -q
+
+# Focused targets for speed when iterating
+unit:
+	pytest -q -m unit
+
+integration:
+	pytest -q -m integration
 
 format:
 	@echo "Auto-formatting code with Black..."

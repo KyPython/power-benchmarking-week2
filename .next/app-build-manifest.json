@@ -9,6 +9,16 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/activate/page.js"
+    ],
+    "/api/checkout/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/checkout/route.js"
+    ],
+    "/api/webhooks/polar/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/webhooks/polar/route.js"
     ]
   }
 }
