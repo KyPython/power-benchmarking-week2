@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDeviceCode } from '../../../../lib/supabase';
+import { getDeviceCode } from '@/lib/supabase';
 
 const TOKEN_EXPIRY_DAYS = 30;
 

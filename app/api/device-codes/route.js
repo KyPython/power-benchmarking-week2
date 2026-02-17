@@ -10,7 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { createDeviceCode } from '../../../lib/supabase';
+import { createDeviceCode } from '@/lib/supabase';
 
 // Configuration
 const CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes to activate

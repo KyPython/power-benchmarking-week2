@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getDeviceCode, updateDeviceCode, getUserByEmail } from '../../../lib/supabase';
+import { getDeviceCode, updateDeviceCode, getUserByEmail } from '@/lib/supabase';
 
 export async function POST(request) {
   try {

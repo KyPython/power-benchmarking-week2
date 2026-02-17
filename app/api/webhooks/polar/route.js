@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes, createHmac } from 'crypto';
-import { getOrCreateUser, setEntitlement, createDeviceCode } from '../../../../lib/supabase';
+import { getOrCreateUser, setEntitlement, createDeviceCode } from '@/lib/supabase';
 
 // In-memory stores (fallback if no Supabase)
 const processedEvents = new Map();
