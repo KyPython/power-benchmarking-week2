@@ -10,6 +10,8 @@ function ActivateContent() {
   const [status, setStatus] = useState('loading');
   const [deviceData, setDeviceData] = useState(null);
   const [error, setError] = useState(null);
+  const [resendStatus, setResendStatus] = useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
     if (code) {
@@ -77,9 +79,6 @@ function ActivateContent() {
       </div>
     );
   }
-
-  const [resendStatus, setResendStatus] = useState(null);
-  const [resendLoading, setResendLoading] = useState(false);
 
   async function handleResendCode() {
     const userEmail = prompt('Please enter your email address to resend the activation code:');
