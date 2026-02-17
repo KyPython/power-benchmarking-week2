@@ -36,7 +36,12 @@ class PremiumFeatures:
         return {"tier": "free", "features": {}}
 
     def is_premium(self) -> bool:
-        """Check if user has premium subscription."""
+        """Check if user has premium subscription.
+        Treat presence of Polar API key as entitled.
+        """
+        lic = (self.config or {}).get("licensing") or {}
+        if lic.get("polar_api_key"):
+            return True
         return self.tier == "premium"
 
     def has_feature(self, feature: str) -> bool:

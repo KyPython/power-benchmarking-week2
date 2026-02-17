@@ -70,7 +70,7 @@ def signal_handler(sig, frame):
     if console:
         console.print("\n\n[bold blue]🛑 Shutting down gracefully...[/bold blue]")
     else:
-    print("\n\n🛑 Shutting down gracefully...")
+        print("\n\n🛑 Shutting down gracefully...")
     running = False
     sys.exit(0)
 
@@ -89,7 +89,7 @@ def find_arduino_port() -> Optional[str]:
             if console:
                 console.print(f"[bold blue]✅ Found Arduino at:[/bold blue] {port.device}")
             else:
-            print(f"✅ Found Arduino at: {port.device}")
+                print(f"✅ Found Arduino at: {port.device}")
             return port.device
     return None
 
@@ -107,7 +107,7 @@ def get_model_input_name(model: ct.models.MLModel) -> str:
         if console:
             console.print(f"[yellow]⚠️  Warning: Could not detect input name:[/yellow] {e}")
         else:
-        print(f"⚠️  Warning: Could not detect input name: {e}")
+            print(f"⚠️  Warning: Could not detect input name: {e}")
     
     # Try common input names
     for common_name in ["x_1", "input", "image", "data"]:
@@ -173,13 +173,13 @@ def powermetrics_reader(power_queue: Queue, sample_interval: int = 500):
                 f"[bold blue]✅ powermetrics started[/bold blue] (sampling every {sample_interval}ms)"
             )
         else:
-        print(f"✅ powermetrics started (sampling every {sample_interval}ms)")
+            print(f"✅ powermetrics started (sampling every {sample_interval}ms)")
         
         if process.stdout is None:
             if console:
                 console.print("[bold red]❌ Error: powermetrics stdout is not available[/bold red]")
             else:
-            print("❌ Error: powermetrics stdout is not available")
+                print("❌ Error: powermetrics stdout is not available")
             return
         
         buffer = ""
@@ -190,20 +190,20 @@ def powermetrics_reader(power_queue: Queue, sample_interval: int = 500):
             ready, _, _ = select.select([process.stdout], [], [], timeout)
 
             if ready:
-            chunk = process.stdout.read(1024)
-            if not chunk:
-                if process.poll() is not None:
-                    break
-                continue
-            
-            buffer += chunk
+                chunk = process.stdout.read(1024)
+                if not chunk:
+                    if process.poll() is not None:
+                        break
+                    continue
+                
+                buffer += chunk
             
             # Try to parse ANE power from accumulated buffer
             ane_power = parse_ane_power(buffer)
             
             if ane_power is not None:
-                    timestamp = time.time()
-                    power_queue.put((timestamp, ane_power))
+                timestamp = time.time()
+                power_queue.put((timestamp, ane_power))
                 # Clear buffer after successful parse (keep last 2KB for overlap)
                 buffer = buffer[-2048:] if len(buffer) > 2048 else ""
             
@@ -223,13 +223,13 @@ def powermetrics_reader(power_queue: Queue, sample_interval: int = 500):
             console.print(f"[bold red]❌ Error running powermetrics:[/bold red] {e}")
             console.print("   Make sure you have sudo permissions and powermetrics is available.")
         else:
-        print(f"❌ Error running powermetrics: {e}")
+            print(f"❌ Error running powermetrics: {e}")
         print("   Make sure you have sudo permissions and powermetrics is available.")
     except Exception as e:
         if console:
             console.print(f"[bold red]❌ Unexpected error in powermetrics reader:[/bold red] {e}")
         else:
-        print(f"❌ Unexpected error in powermetrics reader: {e}")
+            print(f"❌ Unexpected error in powermetrics reader: {e}")
 
 
 def serial_writer(power_queue: Queue, port: Optional[str], baudrate: int = 115200):
@@ -246,7 +246,7 @@ def serial_writer(power_queue: Queue, port: Optional[str], baudrate: int = 11520
             )
             console.print("   (This is the expected 'Edge Case' behavior)")
         else:
-        print("⚠️  Warning: Arduino not found. Continuing benchmark without serial output.")
+            print("⚠️  Warning: Arduino not found. Continuing benchmark without serial output.")
         print("   (This is the expected 'Edge Case' behavior)")
         # Drain the queue to prevent it from filling up
         while running:
@@ -265,7 +265,7 @@ def serial_writer(power_queue: Queue, port: Optional[str], baudrate: int = 11520
                 f"[bold blue]✅ Serial connection established:[/bold blue] {port} @ {baudrate} baud"
             )
         else:
-        print(f"✅ Serial connection established: {port} @ {baudrate} baud")
+            print(f"✅ Serial connection established: {port} @ {baudrate} baud")
         
         last_send_time = 0
         send_interval = 0.5  # 500ms
@@ -301,14 +301,14 @@ def serial_writer(power_queue: Queue, port: Optional[str], baudrate: int = 11520
             console.print(f"[yellow]⚠️  Warning: Serial communication error:[/yellow] {e}")
             console.print("   Continuing benchmark without serial output.")
         else:
-        print(f"⚠️  Warning: Serial communication error: {e}")
+            print(f"⚠️  Warning: Serial communication error: {e}")
         print("   Continuing benchmark without serial output.")
         serial_connected = False
     except Exception as e:
         if console:
             console.print(f"[yellow]⚠️  Warning: Unexpected serial error:[/yellow] {e}")
         else:
-        print(f"⚠️  Warning: Unexpected serial error: {e}")
+            print(f"⚠️  Warning: Unexpected serial error: {e}")
         serial_connected = False
     finally:
         if ser and ser.is_open:
@@ -316,7 +316,7 @@ def serial_writer(power_queue: Queue, port: Optional[str], baudrate: int = 11520
             if console:
                 console.print("[dim]🔌 Serial port closed[/dim]")
             else:
-            print("🔌 Serial port closed")
+                print("🔌 Serial port closed")
 
 
 def create_stats_table(
@@ -569,7 +569,7 @@ def inference_loop(
         if timeout_seconds:
             console.print(f"   [dim]Test mode: Will run for {timeout_seconds} seconds[/dim]")
     else:
-    print("🔄 Starting inference loop on Neural Engine...")
+        print("🔄 Starting inference loop on Neural Engine...")
     if timeout_seconds:
         print(f"   Test mode: Will run for {timeout_seconds} seconds")
     
@@ -645,18 +645,19 @@ def inference_loop(
                 if console:
                     console.print(f"\n[blue]⏱️  Test timeout reached ({timeout_seconds}s)[/blue]")
                 else:
-                print(f"\n⏱️  Test timeout reached ({timeout_seconds}s)")
+                    print(f"\n⏱️  Test timeout reached ({timeout_seconds}s)")
                 break
             
             # Apply thermal timing
             if burst_duration_s > 0:
                 inference_start = time.time()
             _ = model.predict({input_name: input_data})
+            if burst_duration_s > 0:
                 inference_duration = time.time() - inference_start
             inference_count += 1
-                if inference_count_ref is not None:
-                    inference_count_ref[0] = inference_count
-                time.sleep(burst_duration_s)
+            if inference_count_ref is not None:
+                inference_count_ref[0] = inference_count
+            time.sleep(burst_duration_s)
 
             if idle_duration_s > 0:
                 time.sleep(idle_duration_s)
@@ -667,7 +668,7 @@ def inference_loop(
         if console:
             console.print(f"[bold red]❌ Error in inference loop:[/bold red] {e}")
         else:
-        print(f"❌ Error in inference loop: {e}")
+            print(f"❌ Error in inference loop: {e}")
     
     elapsed = time.time() - start_time
     avg_throughput = inference_count / elapsed if elapsed > 0 else 0
@@ -786,7 +787,7 @@ def main():
                 console.print(f"[bold red]❌ Failed to load model:[/bold red] {e}")
                 return 1
     else:
-    print("📦 Loading MobileNetV2.mlpackage...")
+        print("📦 Loading MobileNetV2.mlpackage...")
     try:
         model = ct.models.MLModel(
                 "MobileNetV2.mlpackage", compute_units=ct.ComputeUnit.ALL  # Use Neural Engine
@@ -800,19 +801,19 @@ def main():
     if use_rich:
         console.print("[blue]🔍 Detecting model input name...[/blue]")
     else:
-    print("🔍 Detecting model input name...")
+        print("🔍 Detecting model input name...")
     input_name = get_model_input_name(model)
     if use_rich:
         console.print(f"[bold blue]✅ Using input name:[/bold blue] '{input_name}'")
     else:
-    print(f"✅ Using input name: '{input_name}'")
+        print(f"✅ Using input name: '{input_name}'")
     
     # 3. Prepare input data
     input_data = np.random.rand(1, 3, 224, 224).astype(np.float32)
     if use_rich:
         console.print("[bold blue]✅ Input tensor prepared:[/bold blue] (1, 3, 224, 224)")
     else:
-    print("✅ Input tensor prepared: (1, 3, 224, 224)")
+        print("✅ Input tensor prepared: (1, 3, 224, 224)")
     
     # 4. Warmup
     if use_rich:
@@ -825,7 +826,7 @@ def main():
                 console.print(f"[bold red]❌ Warmup failed:[/bold red] {e}")
                 return 1
     else:
-    print("\n🔥 Warming up model...")
+        print("\n🔥 Warming up model...")
     try:
         for _ in range(10):
             _ = model.predict({input_name: input_data})
@@ -838,7 +839,7 @@ def main():
     if use_rich:
         console.print("\n[blue]🔌 Searching for Arduino...[/blue]")
     else:
-    print("\n🔌 Searching for Arduino...")
+        print("\n🔌 Searching for Arduino...")
     arduino_port = find_arduino_port()
     
     # 6. Create power queue for thread communication
@@ -848,7 +849,7 @@ def main():
     if use_rich:
         console.print("\n[blue]⚡ Starting power monitoring...[/blue]")
     else:
-    print("\n⚡ Starting power monitoring...")
+        print("\n⚡ Starting power monitoring...")
     power_thread = threading.Thread(
         target=powermetrics_reader, args=(power_queue, 500), daemon=True
     )
@@ -859,7 +860,7 @@ def main():
     if use_rich:
         console.print("[blue]📡 Starting serial communication...[/blue]")
     else:
-    print("\n📡 Starting serial communication...")
+        print("\n📡 Starting serial communication...")
     serial_thread = threading.Thread(
         target=serial_writer, args=(power_queue, arduino_port, 115200), daemon=True
     )
