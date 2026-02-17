@@ -1,7 +1,13 @@
 export default function handler(req, res) {
-  const url = process.env.POLAR_CHECKOUT_URL;
+  const plan = req.query?.plan || 'premium';
+  const premium = process.env.POLAR_PREMIUM_URL || process.env.POLAR_CHECKOUT_URL;
+  const enterprise = process.env.POLAR_ENTERPRISE_URL;
+  let url = premium;
+  if (plan === 'enterprise') {
+    url = enterprise;
+  }
   if (!url) {
-    res.status(500).json({ error: "POLAR_CHECKOUT_URL not set" });
+    res.status(500).json({ error: `Checkout URL not set for plan=${plan}` });
     return;
   }
   res.writeHead(302, { Location: url });
