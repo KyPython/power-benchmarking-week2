@@ -78,12 +78,65 @@ function ActivateContent() {
     );
   }
 
+  const [resendStatus, setResendStatus] = useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
+
+  async function handleResendCode() {
+    const userEmail = prompt('Please enter your email address to resend the activation code:');
+    if (!userEmail) return;
+    
+    setResendLoading(true);
+    setResendStatus(null);
+    
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/activation-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setResendStatus({ type: 'success', message: 'Activation code resent! Check your email.' });
+      } else {
+        setResendStatus({ type: 'error', message: data.error || 'Failed to resend code' });
+      }
+    } catch (err) {
+      setResendStatus({ type: 'error', message: 'Failed to resend activation code' });
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   if (status === 'error') {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
           <h1 style={{ color: '#dc2626' }}>Activation Error</h1>
           <p>{error || 'Something went wrong'}</p>
+          <div style={{ marginTop: '24px' }}>
+            <p style={{ marginBottom: '12px', color: '#6b7280' }}>
+              Didn't receive your activation code?
+            </p>
+            <button 
+              onClick={handleResendCode}
+              disabled={resendLoading}
+              style={styles.resendButton}
+            >
+              {resendLoading ? 'Sending...' : '📧 Resend Activation Code'}
+            </button>
+            {resendStatus && (
+              <p style={{
+                ...styles.statusMessage,
+                color: resendStatus.type === 'success' ? '#16a34a' : '#dc2626',
+                marginTop: '12px'
+              }}>
+                {resendStatus.message}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -135,4 +188,6 @@ const styles = {
   activateButton: { backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '14px 28px', fontSize: '16px', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: '600' },
   button: { display: 'inline-block', backgroundColor: '#2563eb', color: 'white', padding: '12px 24px', borderRadius: '8px', textDecoration: 'none', marginTop: '20px', fontWeight: '600' },
   successIcon: { width: '60px', height: '60px', backgroundColor: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px', margin: '0 auto 20px' },
+  resendButton: { backgroundColor: '#667eea', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', transition: 'background-color 0.2s' },
+  statusMessage: { fontSize: '14px', fontWeight: '500' },
 };

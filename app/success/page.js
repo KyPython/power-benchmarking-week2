@@ -3,13 +3,49 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export default function SuccessPage({ searchParams }) {
-  const checkoutId = searchParams?.checkout_id || null;
-  const [code, setCode] = useState(null);
+export default function SuccessPage() {
+  const searchParams = useSearchParams();
+  const checkoutId = searchParams?.get('checkout_id') || null;
+  const email = searchParams?.get('email') || null;
+  
+  const [resendStatus, setResendStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // In production, we'd get the code from the checkout session
-  // For now, show instructions for both flows
+  async function handleResendCode() {
+    if (!email) {
+      // Prompt for email if not in URL
+      const userEmail = prompt('Please enter your email address:');
+      if (!userEmail) return;
+      return handleResendCodeWithEmail(userEmail);
+    }
+    return handleResendCodeWithEmail(email);
+  }
+
+  async function handleResendCodeWithEmail(userEmail) {
+    setLoading(true);
+    setResendStatus(null);
+    
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/activation-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setResendStatus({ type: 'success', message: 'Activation code resent! Check your email.' });
+      } else {
+        setResendStatus({ type: 'error', message: data.error || 'Failed to resend code' });
+      }
+    } catch (err) {
+      setResendStatus({ type: 'error', message: 'Failed to resend activation code' });
+    } finally {
+      setLoading(false);
+    }
+  }
   
   return (
     <main style={styles.container}>
@@ -29,6 +65,32 @@ export default function SuccessPage({ searchParams }) {
           <p style={styles.optionDesc}>
             Check your email for an activation link. Click it to automatically enable premium features.
           </p>
+          {email && (
+            <button 
+              onClick={handleResendCode}
+              disabled={loading}
+              style={styles.resendButton}
+            >
+              {loading ? 'Sending...' : '📧 Resend Activation Email'}
+            </button>
+          )}
+          {!email && (
+            <button 
+              onClick={handleResendCode}
+              disabled={loading}
+              style={styles.resendButton}
+            >
+              {loading ? 'Sending...' : '📧 Resend Activation Email'}
+            </button>
+          )}
+          {resendStatus && (
+            <p style={{
+              ...styles.statusMessage,
+              color: resendStatus.type === 'success' ? '#16a34a' : '#dc2626'
+            }}>
+              {resendStatus.message}
+            </p>
+          )}
         </div>
         
         <div style={styles.option}>
@@ -58,8 +120,8 @@ export default function SuccessPage({ searchParams }) {
       <div style={styles.help}>
         <p>
           Need help? Contact us at{' '}
-          <a href="mailto:support@example.com" style={styles.link}>
-            support@example.com
+          <a href="mailto:kyjahntsmith@gmail.com" style={styles.link}>
+            kyjahntsmith@gmail.com
           </a>
         </p>
       </div>
@@ -128,5 +190,22 @@ const styles = {
   link: {
     color: '#2563eb',
     textDecoration: 'underline',
+  },
+  resendButton: {
+    backgroundColor: '#667eea',
+    color: 'white',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    marginTop: '12px',
+    transition: 'background-color 0.2s',
+  },
+  statusMessage: {
+    marginTop: '12px',
+    fontSize: '14px',
+    fontWeight: '500',
   },
 };
