@@ -325,6 +325,77 @@
             color: var(--text-light);
         }
         
+        /* CTA Section */
+        .cta-section {
+            padding: 100px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        
+        .cta-section h2 {
+            font-size: 42px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 20px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: var(--primary);
+            padding: 16px 32px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+            padding: 16px 32px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .trial-info {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 12px;
+            font-weight: 400;
+        }
+        
+        .hero-buttons > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
         /* Footer */
         footer {
             background: var(--text);
@@ -437,7 +508,8 @@
                     <div class="plan-name">Premium</div>
                     <div class="plan-description">For professional developers and small teams</div>
                     <div class="plan-price">$99<span class="period">/month</span></div>
-                    <a href="/api/checkout?plan=premium" class="plan-button primary">Buy Premium</a>
+                    <div style="font-size: 14px; color: var(--text-light); margin-bottom: 20px;">14-day free trial • No credit card required</div>
+                    <a href="/api/checkout?plan=premium" class="plan-button primary">Start Free Trial</a>
                     <ul class="features-list">
                         <li>Up to 10 devices</li>
                         <li>Up to 24 hours per session</li>
@@ -605,13 +677,16 @@
     </section>
 
     <!-- CTA Section -->
-    <section class="cta-section" style="padding: 80px 0;">
+    <section class="cta-section">
         <div class="container">
-            <h2 style="font-size: 42px; margin-bottom: 20px;">Ready to optimize your Apple Silicon apps?</h2>
-            <p style="font-size: 20px; margin-bottom: 40px; opacity: 0.9;">Join developers achieving 4.5x energy efficiency improvements</p>
-            <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-                <a href="/api/checkout?plan=premium" class="btn-primary" style="background: white; color: var(--primary); padding: 16px 32px; border-radius: 30px; text-decoration: none; font-weight: 600; font-size: 18px; transition: transform 0.3s, box-shadow 0.3s;">Start Free Trial</a>
-                <a href="mailto:kyjahntsmith@gmail.com" class="btn-secondary" style="background: transparent; color: white; border: 2px solid white; padding: 16px 32px; border-radius: 30px; text-decoration: none; font-weight: 600; font-size: 18px; transition: background 0.3s;">Contact Sales</a>
+            <h2>Ready to optimize your Apple Silicon apps?</h2>
+            <p>Join developers achieving 4.5x energy efficiency improvements</p>
+            <div class="hero-buttons">
+                <div>
+                    <a href="/api/checkout?plan=premium" class="btn-primary">Start Free Trial</a>
+                    <div class="trial-info">14-day free trial • No credit card required</div>
+                </div>
+                <a href="mailto:kyjahntsmith@gmail.com" class="btn-secondary">Contact Sales</a>
             </div>
         </div>
     </section>
