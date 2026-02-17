@@ -2,10 +2,10 @@
   "name": "power-benchmarking-suite",
   "version": "1.0.0",
   "description": "Power Benchmarking Suite - Comprehensive toolkit for monitoring, analyzing, and visualizing power consumption on Apple Silicon Macs",
-  "main": "index.js",
   "scripts": {
-    "build": "echo 'Static site - no build needed'",
-    "start": "echo 'Static site deployed'",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "test": "pytest -q"
   },
   "keywords": [
@@ -22,7 +22,13 @@
     "url": "https://github.com/KyPython/power-benchmarking-week2"
   },
   "dependencies": {
-    "vercel": "^50.17.0",
-    "@polar-sh/nextjs": "^0.1.0"
+    "next": "^14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@polar-sh/nextjs": "^0.1.0",
+    "@sendgrid/mail": "^8.1.6",
+    "@supabase/supabase-js": "^2.96.0",
+    "pg": "^8.18.0",
+    "vercel": "^50.18.0"
   }
 }

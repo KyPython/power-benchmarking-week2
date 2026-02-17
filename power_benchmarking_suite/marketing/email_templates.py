@@ -174,6 +174,59 @@ class EmailTemplates:
             "checkin", "Monthly Check-in - Power Benchmarking Suite", checkin_html
         )
 
+        # Activation email template
+        activation_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Activate Your Premium</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #2563eb;">🎉 Welcome to Power Benchmarking Premium!</h1>
+                <p>Hi {{ contact_name }},</p>
+                <p>Thank you for your purchase! Your premium subscription is ready.</p>
+                
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0 0 10px 0; font-weight: bold;">Your Activation Details:</p>
+                    <p style="margin: 0;">Activation Code: <strong>{{ code }}</strong></p>
+                    <p style="margin: 10px 0 0 0;">Or click the button below:</p>
+                </div>
+                
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="{{ activation_url }}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                        Activate Premium
+                    </a>
+                </p>
+                
+                <h3>What's Included in Premium:</h3>
+                <ul>
+                    <li>☁️ <strong>Cloud Sync</strong> - Sync your benchmarks across devices</li>
+                    <li>👥 <strong>Team Collaboration</strong> - Share insights with your team</li>
+                    <li>📊 <strong>Advanced Analytics</strong> - Deep insights into power consumption</li>
+                </ul>
+                
+                <p><strong>Having trouble?</strong></p>
+                <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+                <p style="word-break: break-all; color: #6b7280; font-size: 12px;">{{ activation_url }}</p>
+                
+                <p style="margin-top: 30px;">Need help? Just reply to this email.</p>
+                <p>Best regards,<br>The Power Benchmarking Team</p>
+                <hr>
+                <p style="font-size: 12px; color: #666;">
+                    <a href="{{ unsubscribe_url }}">Unsubscribe</a> | 
+                    <a href="{{ preferences_url }}">Email Preferences</a>
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        self._templates["activation"] = EmailTemplate(
+            "activation", "Activate Your Power Benchmarking Premium", activation_html
+        )
+
     def get_template(self, name: str) -> Optional[EmailTemplate]:
         """Get a template by name."""
         return self._templates.get(name)

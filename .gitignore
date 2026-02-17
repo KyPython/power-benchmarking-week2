@@ -107,3 +107,4 @@ social/linkedin_carousel/*.pdf
 social/linkedin_carousel/*.zip
 social/linkedin_carousel/caption.txt
 social/linkedin_carousel/linkedin_post_caption.txt
+node_modules

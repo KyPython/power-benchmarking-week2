@@ -26,9 +26,30 @@ class PremiumFeatures:
     """Premium features manager."""
 
     def __init__(self):
+        self._load_env()  # auto-load .env so CLI doesn't require manual export
         self.config = self._load_config()
         self.tier = self.config.get("tier", "free")
         self.features = self.config.get("features", {})
+
+    def _load_env(self) -> None:
+        """Load env vars from .env files if present (no external deps)."""
+        candidates = [Path.cwd() / ".env", Path.cwd() / ".env.local"]
+        for p in candidates:
+            if p.exists():
+                try:
+                    for line in p.read_text().splitlines():
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip()
+                            # Only set if not already set
+                            if k and (os.getenv(k) is None):
+                                os.environ[k] = v
+                except Exception:
+                    continue
 
     def _load_config(self) -> Dict:
         """Load premium configuration."""
@@ -42,49 +63,168 @@ class PremiumFeatures:
 
     def is_premium(self) -> bool:
         """Check if user has premium subscription.
-        Treat presence of Polar API key as entitled.
+        
+        Priority:
+        1. Environment variable POLAR_API_KEY (most trusted)
+        2. Locally stored token from activation
+        3. Cached tier (last verified)
+        
+        Note: This returns cached state. Call verify_polar_entitlement()
+        to actually check with Polar API.
         """
+        # Env override (gitignored .env supported)
+        env_key = os.getenv("POLAR_API_KEY") or os.getenv("POLAR_TOKEN") or os.getenv("POLAR_ACCESS_TOKEN")
+        if env_key:
+            return True
         lic = (self.config or {}).get("licensing") or {}
-        if lic.get("polar_api_key"):
+        if lic.get("polar_api_key") or lic.get("polar_token"):
             return True
         return self.tier == "premium"
 
     def verify_polar_entitlement(self) -> bool:
-        """Verify entitlement against Polar API (non-blocking fallback to local state).
-        Writes verification result back to config when successful.
+        """Verify entitlement against Polar API.
+        
+        This makes an actual API call to Polar to verify the user
+        has an active subscription. This is the authoritative check.
+        
+        Returns True if user has active subscription.
+        Updates local cache on success.
         """
         lic = (self.config or {}).get("licensing") or {}
-        token = lic.get("polar_api_key") or lic.get("polar_token")
-        if not token or requests is None:
+        token = (
+            os.getenv("POLAR_API_KEY")
+            or os.getenv("POLAR_TOKEN")
+            or lic.get("polar_api_key")
+            or lic.get("polar_token")
+        )
+        
+        if requests is None:
+            print("⚠️  Requests library not available")
             return False
+            
         try:
-            headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-            # Attempt subscriptions endpoint; treat any active subscription as premium
+            # If we don't have a token, make a best-effort unauthenticated call.
+            # In production Polar will respond 401, which we treat as "no premium".
+            if token:
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                }
+            else:
+                headers = {"Accept": "application/json"}
+            
+            # First check subscriptions
             url = "https://api.polar.sh/v1/subscriptions"
-            resp = requests.get(url, params={"status": "active"}, headers=headers, timeout=8)
-            if resp.status_code == 200 and isinstance(resp.json(), dict):
-                data = resp.json()
-                items = data.get("items") or data.get("data") or []
-                if items:
-                    # Persist verification
-                    self.tier = "premium"
-                    self.features = {
-                        "cloud_sync": True,
-                        "team_collaboration": True,
-                        "advanced_analytics": True,
-                    }
-                    new_cfg = dict(self.config)
-                    new_cfg["tier"] = self.tier
-                    new_cfg["features"] = self.features
-                    ver = new_cfg.setdefault("verification", {})
-                    ver.update({"source": "polar", "verified": True, "verified_at": datetime.now().isoformat()})
-                    with open(PREMIUM_CONFIG_FILE, "w") as f:
-                        json.dump(new_cfg, f, indent=2)
-                    self.config = new_cfg
-                    return True
-            return False
+            resp = requests.get(url, params={"status": "active"}, headers=headers, timeout=10)
+            
+            if resp.status_code == 401:
+                print("⚠️  Invalid Polar token. Please re-authenticate.")
+                self._clear_entitlement()
+                return False
+                
+            data = resp.json()
+            items = data.get("items") or data.get("data") or []
+            
+            # Also check for product-specific entitlements
+            if not items:
+                # Try products endpoint
+                products_resp = requests.get(
+                    "https://api.polar.sh/v1/products",
+                    headers=headers,
+                    timeout=10
+                )
+                if products_resp.status_code == 200:
+                    products = products_resp.json().get("items") or []
+                    has_premium_product = any(
+                        p.get("prices") and any(
+                            price.get("status") == "active" 
+                            for price in p.get("prices", [])
+                        )
+                        for p in products
+                    )
+                    if has_premium_product:
+                        return self._persist_verification(True)
+            
+            if items:
+                # Check for active subscription
+                has_active = any(
+                    sub.get("status") == "active"
+                    for sub in items
+                )
+                if has_active:
+                    return self._persist_verification(True)
+            
+            # No active subscription found
+            print("⚠️  No active premium subscription found")
+            return self._persist_verification(False)
+            
+        except requests.exceptions.Timeout:
+            print("⚠️  Timeout connecting to Polar API")
+            # Don't clear cache on timeout - use cached state
+            return self.tier == "premium"
+            
+        except requests.exceptions.ConnectionError:
+            print("⚠️  Could not connect to Polar API")
+            # Use cached state
+            return self.tier == "premium"
+            
+        except Exception as e:
+            print(f"⚠️  Error verifying entitlement: {e}")
+            return self.tier == "premium"
+
+    def _persist_verification(self, is_premium: bool) -> bool:
+        """Persist verification result to config."""
+        if is_premium:
+            self.tier = "premium"
+            self.features = {
+                "cloud_sync": True,
+                "team_collaboration": True,
+                "advanced_analytics": True,
+            }
+        else:
+            self.tier = "free"
+            self.features = {}
+        
+        new_cfg = dict(self.config)
+        new_cfg["tier"] = self.tier
+        new_cfg["features"] = self.features
+        ver = new_cfg.setdefault("verification", {})
+        ver.update({
+            "source": "polar_api",
+            "verified": is_premium,
+            "verified_at": datetime.now().isoformat()
+        })
+        
+        try:
+            PREMIUM_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(PREMIUM_CONFIG_FILE, "w") as f:
+                json.dump(new_cfg, f, indent=2)
+            self.config = new_cfg
+        except Exception as e:
+            print(f"⚠️  Could not save config: {e}")
+        
+        return is_premium
+
+    def _clear_entitlement(self) -> None:
+        """Clear stored entitlement (on auth failure)."""
+        self.tier = "free"
+        self.features = {}
+        
+        new_cfg = dict(self.config)
+        new_cfg["tier"] = "free"
+        new_cfg["features"] = {}
+        ver = new_cfg.setdefault("verification", {})
+        ver.update({
+            "verified": False,
+            "error_at": datetime.now().isoformat()
+        })
+        try:
+            PREMIUM_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(PREMIUM_CONFIG_FILE, "w") as f:
+                json.dump(new_cfg, f, indent=2)
+            self.config = new_cfg
         except Exception:
-            return False
+            pass
 
     def has_feature(self, feature: str) -> bool:
         """Check if a specific premium feature is available."""
