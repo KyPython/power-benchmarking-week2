@@ -121,6 +121,26 @@ CREATE INDEX IF NOT EXISTS idx_device_codes_code ON device_codes(code);
 CREATE INDEX IF NOT EXISTS idx_device_codes_email ON device_codes(email);
 
 -- ============================================
+-- PRODUCTS
+-- ============================================
+-- Product catalog synced from Polar
+
+CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    polar_product_id VARCHAR(255) UNIQUE NOT NULL,
+    price_cents INTEGER DEFAULT 0,
+    interval VARCHAR(20) DEFAULT 'month',
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_polar_id ON products(polar_product_id);
+CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug);
+
+-- ============================================
 -- PURCHASE RECORDS (Audit)
 -- ============================================
 
@@ -131,6 +151,7 @@ CREATE TABLE IF NOT EXISTS purchase_records (
     event_type VARCHAR(100) NOT NULL,
     checkout_id VARCHAR(255),
     subscription_id VARCHAR(255),
+    product_id INTEGER REFERENCES products(id),
     product_name VARCHAR(255),
     amount INTEGER,
     currency VARCHAR(10),

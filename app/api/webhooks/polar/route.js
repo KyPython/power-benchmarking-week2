@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes, createHmac } from 'crypto';
-import { getOrCreateUser, setEntitlement, createDeviceCode } from '@/lib/supabase';
+import { getOrCreateUser, setEntitlement, createDeviceCode, getProductByPolarId, savePurchaseRecord } from '@/lib/supabase';
 
 // In-memory stores (fallback if no Supabase)
 const processedEvents = new Map();
@@ -66,6 +66,7 @@ async function handleCheckoutCompleted(data) {
   const email = data?.customer_email || data?.customer?.email;
   const checkoutId = data?.id;
   const productName = data?.product?.name || 'Premium';
+  const productId = data?.product?.id;
   
   if (!email) return NextResponse.json({ error: 'No email' }, { status: 400 });
 
@@ -82,12 +83,51 @@ async function handleCheckoutCompleted(data) {
     console.log('[Webhook] Supabase not available, using fallback');
   }
 
+  // Determine tier from product
+  let tier = 'premium';
+  const nameLower = (productName || '').toLowerCase();
+  if (nameLower.includes('enterprise')) {
+    tier = 'enterprise';
+  } else if (nameLower.includes('pro')) {
+    tier = 'pro';
+  }
+
   // Create entitlement
   if (user) {
     try {
-      await setEntitlement(user.id, 'premium', null, checkoutId);
+      await setEntitlement(user.id, tier, null, checkoutId);
     } catch (e) {
       console.log('[Entitlement] Failed to set:', e.message);
+    }
+
+    // Try to link product
+    let dbProductId = null;
+    if (productId) {
+      try {
+        const product = await getProductByPolarId(productId);
+        if (product) {
+          dbProductId = product.id;
+        }
+      } catch (e) {
+        console.log('[Product] Not found in database');
+      }
+    }
+
+    // Save purchase record
+    try {
+      await savePurchaseRecord({
+        event_id: checkoutId,
+        user_id: user.id,
+        event_type: 'checkout.completed',
+        checkout_id: checkoutId,
+        product_id: dbProductId,
+        product_name: productName,
+        amount: data?.product?.price_amount || data?.amount || 0,
+        currency: data?.product?.price_currency || data?.currency || 'usd',
+        status: 'completed',
+      });
+    } catch (e) {
+      console.log('[Purchase] Failed to save:', e.message);
     }
   }
 
@@ -98,7 +138,7 @@ async function handleCheckoutCompleted(data) {
   // Store in Supabase
   try {
     await createDeviceCode(email, code.toUpperCase(), {
-      plan: 'premium',
+      plan: tier,
       token,
       checkoutId,
       status: 'pending',

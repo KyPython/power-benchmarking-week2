@@ -55,6 +55,11 @@ def add_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParse
     p_verify = sub.add_parser("verify", help="Verify with Polar (force refresh)")
     p_verify.set_defaults(premium_action="verify")
 
+    # Plans - show available plans from database
+    p_plans = sub.add_parser("plans", help="Show available plans")
+    p_plans.add_argument("--json", action="store_true", help="Output as JSON")
+    p_plans.set_defaults(premium_action="plans")
+
     parser.set_defaults(func=run)
     return parser
 
@@ -218,8 +223,12 @@ def run(args: argparse.Namespace, config=None) -> int:
         print()
         return 0
     
+    # PLANS - Show available plans
+    elif action == "plans":
+        return _show_plans(getattr(args, "json", False))
+    
     else:
-        print("Usage: power-benchmark premium [status|upgrade|login|test|verify]")
+        print("Usage: power-benchmark premium [status|upgrade|login|test|verify|plans]")
         return 1
 
 
@@ -256,3 +265,94 @@ def _poll_activation(code: str) -> int:
     
     print("\n\n⏱️ Timeout - code expired or invalid")
     return 1
+
+
+def _show_plans(json_output: bool = False) -> int:
+    """Show available plans from database or API."""
+    base_url = os.getenv("POWER_BENCHMARK_API_URL", "http://localhost:3000")
+    
+    # Try to get plans from API
+    try:
+        resp = requests.post(f"{base_url}/api/checkout", timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            plans = data.get("plans", [])
+            
+            if json_output:
+                print(json.dumps(plans, indent=2))
+                return 0
+            
+            print("\n📋 AVAILABLE PLANS")
+            print("\n" + "─" * 50)
+            
+            for plan in plans:
+                name = plan.get("name", "Unknown")
+                plan_type = plan.get("plan", "unknown")
+                price = plan.get("price", 0)
+                currency = plan.get("currency", "usd")
+                
+                # Format price
+                if price == 0:
+                    price_str = "FREE"
+                else:
+                    price_str = f"${price/100:.2f}/{currency.upper()}"
+                
+                # Icon based on plan type
+                if plan_type == "free":
+                    icon = "⚡"
+                elif plan_type == "premium":
+                    icon = "💎"
+                elif plan_type == "enterprise":
+                    icon = "🏢"
+                else:
+                    icon = "📦"
+                
+                print(f"{icon} {name:20} {price_str:15}")
+            
+            print("─" * 50)
+            print("\nTo upgrade: power-benchmark premium upgrade")
+            print()
+            return 0
+    except Exception as e:
+        pass
+    
+    # Fallback to hardcoded plans
+    plans = [
+        {"plan": "free", "name": "Free", "price": 0, "currency": "usd"},
+        {"plan": "premium", "name": "Premium", "price": 999, "currency": "usd"},
+        {"plan": "enterprise", "name": "Enterprise", "price": 4999, "currency": "usd"},
+    ]
+    
+    if json_output:
+        print(json.dumps(plans, indent=2))
+        return 0
+    
+    print("\n📋 AVAILABLE PLANS (fallback)")
+    print("\n" + "─" * 50)
+    
+    for plan in plans:
+        name = plan.get("name", "Unknown")
+        plan_type = plan.get("plan", "unknown")
+        price = plan.get("price", 0)
+        currency = plan.get("currency", "usd")
+        
+        if price == 0:
+            price_str = "FREE"
+        else:
+            price_str = f"${price/100:.2f}/{currency.upper()}"
+        
+        if plan_type == "free":
+            icon = "⚡"
+        elif plan_type == "premium":
+            icon = "💎"
+        elif plan_type == "enterprise":
+            icon = "🏢"
+        else:
+            icon = "📦"
+        
+        print(f"{icon} {name:20} {price_str:15}")
+    
+    print("─" * 50)
+    print("\nTo upgrade: power-benchmark premium upgrade")
+    print()
+    return 0

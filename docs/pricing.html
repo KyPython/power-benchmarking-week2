@@ -352,6 +352,7 @@
         }
         
         .btn-primary {
+            display: inline-block;
             background: white;
             color: var(--primary);
             padding: 16px 32px;
@@ -368,19 +369,22 @@
         }
         
         .btn-secondary {
-            background: transparent;
-            color: white;
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--primary);
             border: 2px solid white;
             padding: 16px 32px;
             border-radius: 30px;
             text-decoration: none;
             font-weight: 600;
             font-size: 18px;
-            transition: background 0.3s;
+            transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
         }
         
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
         }
         
         .trial-info {
