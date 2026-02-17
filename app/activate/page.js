@@ -1,10 +1,11 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 function ActivateContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const code = searchParams.get('code');
   
   const [status, setStatus] = useState('loading');
@@ -17,11 +18,10 @@ function ActivateContent() {
     if (code) {
       checkCode();
     } else {
-      // No code provided - redirect to home/pricing instead of showing error
-      const router = require('next/navigation').useRouter();
+      // No code provided - redirect to landing page instead of showing error
       router.replace('/pricing.html');
     }
-  }, [code]);
+  }, [code, router]);
 
   async function handleResendCode() {
     const userEmail = prompt('Please enter your email address to resend the activation code:');
