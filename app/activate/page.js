@@ -17,8 +17,9 @@ function ActivateContent() {
     if (code) {
       checkCode();
     } else {
-      setStatus('error');
-      setError('No activation code provided');
+      // No code provided - redirect to home/pricing instead of showing error
+      const router = require('next/navigation').useRouter();
+      router.replace('/pricing.html');
     }
   }, [code]);
 
