@@ -1,9 +1,10 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-export default function SuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const checkoutId = searchParams?.get('checkout_id') || null;
   const email = searchParams?.get('email') || null;
@@ -126,6 +127,14 @@ export default function SuccessPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<div style={styles.container}>Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }
 
