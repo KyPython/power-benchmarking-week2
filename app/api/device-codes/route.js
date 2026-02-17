@@ -4,17 +4,13 @@
  * POST /api/device-codes
  * Create a new device activation code.
  *
- * NOTE: In-memory storage is shared via the exported `deviceCodes`
- * map from the Polar webhook route so that:
- * - Webhooks can create codes
- * - /api/device-codes and /api/activate can read/update them
- *
- * In production, replace this with a shared store (Redis/DB).
+ * Uses Supabase for storage to support multiple server instances
+ * and persistence across restarts.
  */
 
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { deviceCodes } from '../webhooks/polar/route';
+import { createDeviceCode } from '../../../lib/supabase';
 
 // Configuration
 const CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes to activate
@@ -47,16 +43,15 @@ export async function POST(request) {
 
     const code = generateActivationCode();
     const token = generateLicenseToken();
-    const expiresAt = Date.now() + CODE_EXPIRY_MS;
+    const expiresAt = new Date(Date.now() + CODE_EXPIRY_MS).toISOString();
 
-    deviceCodes.set(code.toUpperCase(), {
-      email,
+    // Store in Supabase
+    await createDeviceCode(email, code.toUpperCase(), {
       plan,
-      expiresAt,
-      activated: false,
-      activatedAt: null,
       token,
       checkoutId,
+      status: 'pending',
+      expires_at: expiresAt,
     });
 
     console.log(
@@ -68,7 +63,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       code,
-      expiresAt,
+      expiresAt: Date.now() + CODE_EXPIRY_MS,
       verificationUrl: `${baseUrl}/activate?code=${code}`,
       instructions:
         'Visit the verification URL and click to confirm activation',

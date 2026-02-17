@@ -3,13 +3,12 @@
  *
  * POST /api/activate - Confirm device activation from web UI
  *
- * Uses the shared in-memory `deviceCodes` map exported from the
- * Polar webhook route so that codes created by webhooks or
+ * Uses Supabase for storage so codes created by webhooks or
  * /api/device-codes can be activated here.
  */
 
 import { NextResponse } from 'next/server';
-import { deviceCodes } from '../webhooks/polar/route';
+import { getDeviceCode, updateDeviceCode, getUserByEmail } from '../../../lib/supabase';
 
 export async function POST(request) {
   try {
@@ -24,7 +23,9 @@ export async function POST(request) {
     }
 
     const normalizedCode = String(code).toUpperCase();
-    const deviceData = deviceCodes.get(normalizedCode);
+    
+    // Get from Supabase
+    const deviceData = await getDeviceCode(normalizedCode);
 
     if (!deviceData) {
       return NextResponse.json(
@@ -34,7 +35,7 @@ export async function POST(request) {
     }
 
     // Check if already activated
-    if (deviceData.activated) {
+    if (deviceData.status === 'completed') {
       return NextResponse.json({
         success: true,
         message: 'Already activated',
@@ -42,10 +43,21 @@ export async function POST(request) {
       });
     }
 
+    // Check if expired
+    const expiresAt = new Date(deviceData.expires_at).getTime();
+    if (Date.now() > expiresAt) {
+      return NextResponse.json(
+        { error: 'Code has expired' },
+        { status: 410 }
+      );
+    }
+
     // Activate the device
     if (confirm) {
-      deviceData.activated = true;
-      deviceData.activatedAt = Date.now();
+      await updateDeviceCode(normalizedCode, {
+        status: 'completed',
+        activated_at: new Date().toISOString(),
+      });
       
       console.log(`[Activate] Device ${normalizedCode} activated for ${deviceData.email}`);
     }

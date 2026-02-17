@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes, createHmac } from 'crypto';
-import { getOrCreateUser, setEntitlement } from '@/lib/supabase';
+import { getOrCreateUser, setEntitlement, createDeviceCode } from '../../../../lib/supabase';
 
 // In-memory stores (fallback if no Supabase)
 const processedEvents = new Map();
@@ -91,11 +91,24 @@ async function handleCheckoutCompleted(data) {
     }
   }
 
-  // Generate activation code
+  // Generate activation code and store in Supabase
   const code = generateCode();
   const token = generateToken();
   
-  processedEvents.set(checkoutId, code);
+  // Store in Supabase
+  try {
+    await createDeviceCode(email, code.toUpperCase(), {
+      plan: 'premium',
+      token,
+      checkoutId,
+      status: 'pending',
+      expires_at: new Date(Date.now() + CODE_EXPIRY_MS).toISOString(),
+    });
+  } catch (e) {
+    console.log('[DeviceCode] Failed to store in Supabase:', e.message);
+    // Fallback to in-memory
+    processedEvents.set(checkoutId, code);
+  }
 
   // Send activation email
   try {

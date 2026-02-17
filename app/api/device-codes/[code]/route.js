@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { deviceCodes } from '../../webhooks/polar/route';
+import { getDeviceCode } from '../../../../lib/supabase';
 
 const TOKEN_EXPIRY_DAYS = 30;
 
@@ -14,7 +14,9 @@ export async function GET(request, { params }) {
   }
 
   const normalizedCode = String(code).toUpperCase();
-  const deviceData = deviceCodes.get(normalizedCode);
+  
+  // Get from Supabase
+  const deviceData = await getDeviceCode(normalizedCode);
 
   if (!deviceData) {
     return NextResponse.json(
@@ -23,8 +25,8 @@ export async function GET(request, { params }) {
     );
   }
 
-  if (Date.now() > deviceData.expiresAt) {
-    deviceCodes.delete(normalizedCode);
+  const expiresAt = new Date(deviceData.expires_at).getTime();
+  if (Date.now() > expiresAt) {
     return NextResponse.json(
       { error: 'Code has expired' },
       { status: 410 },
@@ -33,9 +35,9 @@ export async function GET(request, { params }) {
 
   return NextResponse.json({
     code: normalizedCode,
-    activated: deviceData.activated,
-    expiresAt: deviceData.expiresAt,
-    ...(deviceData.activated && deviceData.token
+    activated: deviceData.status === 'completed',
+    expiresAt: expiresAt,
+    ...(deviceData.status === 'completed' && deviceData.token
       ? {
           token: deviceData.token,
           tokenExpiresAt:
@@ -44,4 +46,3 @@ export async function GET(request, { params }) {
       : {}),
   });
 }
-

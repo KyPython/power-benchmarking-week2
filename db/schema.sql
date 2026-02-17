@@ -100,6 +100,27 @@ CREATE TABLE IF NOT EXISTS activation_codes (
 CREATE INDEX IF NOT EXISTS idx_activation_codes_code ON activation_codes(code);
 
 -- ============================================
+-- DEVICE CODES (OAuth-like flow)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS device_codes (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    plan VARCHAR(50) DEFAULT 'free',
+    token VARCHAR(255),
+    checkout_id VARCHAR(255),
+    status VARCHAR(20) DEFAULT 'pending',
+    activated_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_codes_code ON device_codes(code);
+CREATE INDEX IF NOT EXISTS idx_device_codes_email ON device_codes(email);
+
+-- ============================================
 -- PURCHASE RECORDS (Audit)
 -- ============================================
 

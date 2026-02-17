@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserByEmail, getEntitlement, saveRun, getRuns } from '@/lib/supabase';
+import { getUserByEmail, getEntitlement, saveRun, getRuns } from '../../../lib/supabase';
 
 export async function POST(request) {
   try {

@@ -1,11 +1,3 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/activate/page": "app/activate/page.js",
-  "/api/activate/route": "app/api/activate/route.js",
-  "/api/device-codes/route": "app/api/device-codes/route.js",
-  "/api/send-activation-email/route": "app/api/send-activation-email/route.js",
-  "/success/page": "app/success/page.js",
-  "/api/device-codes/[code]/route": "app/api/device-codes/[code]/route.js",
-  "/api/webhooks/polar/route": "app/api/webhooks/polar/route.js",
-  "/api/checkout/route": "app/api/checkout/route.js"
+  "/_not-found/page": "app/_not-found/page.js"
 }
