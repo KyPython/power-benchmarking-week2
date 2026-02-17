@@ -53,12 +53,36 @@ function ActivateContent() {
       const data = await res.json();
       
       if (res.ok) {
-        setResendStatus({ type: 'success', message: 'Activation code resent! Check your email.' });
+        if (data.emailSent) {
+          setResendStatus({ 
+            type: 'success', 
+            message: 'Activation email resent! Check your email.',
+            code: data.code,
+            activationUrl: data.activationUrl
+          });
+        } else {
+          // Email failed but we got the code - show it
+          setResendStatus({ 
+            type: 'warning', 
+            message: `Email sending failed, but here's your activation code: ${data.code}`,
+            code: data.code,
+            activationUrl: data.activationUrl,
+            hint: data.hint
+          });
+        }
       } else {
-        setResendStatus({ type: 'error', message: data.error || 'Failed to resend code' });
+        setResendStatus({ 
+          type: 'error', 
+          message: data.error || 'Failed to resend code',
+          hint: data.hint
+        });
       }
     } catch (err) {
-      setResendStatus({ type: 'error', message: 'Failed to resend activation code' });
+      setResendStatus({ 
+        type: 'error', 
+        message: 'Failed to resend activation code',
+        details: err.message
+      });
     } finally {
       setResendLoading(false);
     }
@@ -140,13 +164,44 @@ function ActivateContent() {
               {resendLoading ? 'Sending...' : '📧 Resend Activation Code'}
             </button>
             {resendStatus && (
-              <p style={{
-                ...styles.statusMessage,
-                color: resendStatus.type === 'success' ? '#16a34a' : '#dc2626',
-                marginTop: '12px'
-              }}>
-                {resendStatus.message}
-              </p>
+              <div style={{ marginTop: '12px' }}>
+                <p style={{
+                  ...styles.statusMessage,
+                  color: resendStatus.type === 'success' ? '#16a34a' : resendStatus.type === 'warning' ? '#f59e0b' : '#dc2626',
+                }}>
+                  {resendStatus.message}
+                </p>
+                {resendStatus.code && (
+                  <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '8px' }}>
+                    <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>Activation Code:</p>
+                    <code style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px' }}>{resendStatus.code}</code>
+                    {resendStatus.activationUrl && (
+                      <div style={{ marginTop: '12px' }}>
+                        <a 
+                          href={resendStatus.activationUrl}
+                          style={{
+                            display: 'inline-block',
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            textDecoration: 'none',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Activate Now
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {resendStatus.hint && (
+                  <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px', fontStyle: 'italic' }}>
+                    {resendStatus.hint}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
