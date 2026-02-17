@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanks for your purchase | Power Benchmarking Suite</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 48px 24px;
+            max-width: 600px;
+            margin: 0 auto;
+            color: #1D1D1F;
+        }
+        h1 { font-size: 28px; margin-bottom: 16px; color: #007AFF; }
+        p { margin-bottom: 12px; color: #374151; line-height: 1.6; }
+        code { background: #f5f5f7; padding: 2px 8px; border-radius: 4px; font-size: 14px; }
+        .hint { color: #6b7280; margin-top: 24px; }
+        a { color: #007AFF; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Thanks for your purchase!</h1>
+    <p id="checkout-msg">Purchase completed.</p>
+    <p class="hint">
+        In the CLI, run: <code>power-benchmark premium verify</code> to enable premium.
+    </p>
+    <p><a href="/">← Back to Power Benchmarking Suite</a></p>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('checkout_id');
+        if (id) {
+            document.getElementById('checkout-msg').innerHTML = 'Checkout ID: <code>' + id + '</code>';
+        }
+    </script>
+</body>
+</html>

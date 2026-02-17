@@ -1,5 +1,6 @@
 {
   "version": 2,
   "buildCommand": "echo 'Static site - no build needed'",
-  "outputDirectory": "docs"
+  "outputDirectory": "docs",
+  "cleanUrls": true
 }
