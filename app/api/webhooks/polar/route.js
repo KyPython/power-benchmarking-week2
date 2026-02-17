@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes, createHmac } from 'crypto';
-import { getOrCreateUser, setEntitlement, createDeviceCode, getProductByPolarId, savePurchaseRecord } from '@/lib/supabase';
+import { getOrCreateUser, setEntitlement, createDeviceCode, getProductByPolarId, savePurchaseRecord, supabase } from '@/lib/supabase';
 
 // In-memory stores (fallback if no Supabase)
 const processedEvents = new Map();
@@ -78,9 +78,22 @@ async function handleCheckoutCompleted(data) {
   // Get or create user
   let user;
   try {
+    if (!supabase) {
+      console.error('[Webhook] Supabase not configured! Check SUPABASE_URL and SUPABASE_ANON_KEY env vars');
+      return NextResponse.json({ 
+        error: 'Database not configured',
+        hint: 'Set SUPABASE_URL and SUPABASE_ANON_KEY in Vercel environment variables'
+      }, { status: 500 });
+    }
     user = await getOrCreateUser(email, data?.customer_id);
+    console.log('[Webhook] User:', user ? `Created/found user ${user.id}` : 'Failed to create user');
   } catch (e) {
-    console.log('[Webhook] Supabase not available, using fallback');
+    console.error('[Webhook] Failed to get/create user:', e.message);
+    console.error('[Webhook] Error details:', e);
+    return NextResponse.json({ 
+      error: 'Failed to process user',
+      details: e.message 
+    }, { status: 500 });
   }
 
   // Determine tier from product
@@ -205,9 +218,16 @@ export async function POST(request) {
     const signature = request.headers.get('polar-signature');
     const rawBody = await request.text();
     
+    // Log webhook receipt for debugging
+    console.log('[Webhook] Received webhook');
+    console.log('[Webhook] Has secret:', !!webhookSecret);
+    console.log('[Webhook] Has signature:', !!signature);
+    console.log('[Webhook] Supabase configured:', !!supabase);
+    
     // Verify signature
     if (webhookSecret && signature) {
       if (!verifyPolarSignature(signature, rawBody, webhookSecret)) {
+        console.error('[Webhook] Invalid signature');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
     }
@@ -216,14 +236,19 @@ export async function POST(request) {
     const eventType = body?.type;
     const eventData = body?.data;
 
-    console.log(`[Webhook] ${eventType}`);
+    console.log(`[Webhook] Event type: ${eventType}`);
+    console.log(`[Webhook] Event data:`, JSON.stringify(eventData, null, 2));
 
     switch (eventType) {
       case 'checkout.completed':
-        return handleCheckoutCompleted(eventData);
+        console.log('[Webhook] Processing checkout.completed');
+        const result = await handleCheckoutCompleted(eventData);
+        console.log('[Webhook] Result:', result);
+        return result;
       
       case 'subscription.created':
       case 'subscription.active':
+        console.log('[Webhook] Processing subscription event');
         return handleSubscription(eventData, 'created');
       
       case 'subscription.canceled':
@@ -233,10 +258,16 @@ export async function POST(request) {
         return handleSubscription(eventData, 'canceled');
       
       default:
-        return NextResponse.json({ received: true });
+        console.log(`[Webhook] Unhandled event type: ${eventType}`);
+        return NextResponse.json({ received: true, eventType });
     }
   } catch (error) {
     console.error('[Webhook] Error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    console.error('[Webhook] Stack:', error.stack);
+    return NextResponse.json({ 
+      error: 'Internal error',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 });
   }
 }
