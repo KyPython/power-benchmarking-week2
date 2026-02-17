@@ -16,6 +16,11 @@ PREMIUM_CONFIG_FILE = Path.home() / ".power_benchmarking" / "premium_config.json
 CLOUD_SYNC_DIR = Path.home() / ".power_benchmarking" / "cloud_sync"
 TEAM_COLLAB_DIR = Path.home() / ".power_benchmarking" / "team_collab"
 
+try:
+    import requests  # server-side verification
+except Exception:
+    requests = None
+
 
 class PremiumFeatures:
     """Premium features manager."""
@@ -43,6 +48,43 @@ class PremiumFeatures:
         if lic.get("polar_api_key"):
             return True
         return self.tier == "premium"
+
+    def verify_polar_entitlement(self) -> bool:
+        """Verify entitlement against Polar API (non-blocking fallback to local state).
+        Writes verification result back to config when successful.
+        """
+        lic = (self.config or {}).get("licensing") or {}
+        token = lic.get("polar_api_key") or lic.get("polar_token")
+        if not token or requests is None:
+            return False
+        try:
+            headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+            # Attempt subscriptions endpoint; treat any active subscription as premium
+            url = "https://api.polar.sh/v1/subscriptions"
+            resp = requests.get(url, params={"status": "active"}, headers=headers, timeout=8)
+            if resp.status_code == 200 and isinstance(resp.json(), dict):
+                data = resp.json()
+                items = data.get("items") or data.get("data") or []
+                if items:
+                    # Persist verification
+                    self.tier = "premium"
+                    self.features = {
+                        "cloud_sync": True,
+                        "team_collaboration": True,
+                        "advanced_analytics": True,
+                    }
+                    new_cfg = dict(self.config)
+                    new_cfg["tier"] = self.tier
+                    new_cfg["features"] = self.features
+                    ver = new_cfg.setdefault("verification", {})
+                    ver.update({"source": "polar", "verified": True, "verified_at": datetime.now().isoformat()})
+                    with open(PREMIUM_CONFIG_FILE, "w") as f:
+                        json.dump(new_cfg, f, indent=2)
+                    self.config = new_cfg
+                    return True
+            return False
+        except Exception:
+            return False
 
     def has_feature(self, feature: str) -> bool:
         """Check if a specific premium feature is available."""

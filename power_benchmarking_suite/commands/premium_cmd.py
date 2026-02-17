@@ -5,6 +5,8 @@ Premium Command - Manage subscription status
 Usage:
     power-benchmark premium status
     power-benchmark premium enable-test
+    power-benchmark premium login --token <TOKEN>
+    power-benchmark premium verify
     power-benchmark premium upgrade
 """
 
@@ -36,6 +38,9 @@ def add_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParse
     p_login = sub.add_parser("login", help="Store Polar license token locally")
     p_login.add_argument("--token", required=True, help="Polar license token")
     p_login.set_defaults(premium_action="login")
+
+    p_verify = sub.add_parser("verify", help="Verify entitlement via Polar API")
+    p_verify.set_defaults(premium_action="verify")
 
     p_upgrade = sub.add_parser("upgrade", help="Show upgrade instructions")
     p_upgrade.set_defaults(premium_action="upgrade")
@@ -91,6 +96,21 @@ def run(args: argparse.Namespace, config=None) -> int:
         _write_status(status)
         print("✅ Polar token stored locally")
         return 0
+    elif action == "verify":
+        # Call into premium module for verification
+        try:
+            from power_benchmarking_suite.premium import PremiumFeatures
+            pf = PremiumFeatures()
+            ok = pf.verify_polar_entitlement()
+            if ok:
+                print("✅ Entitlement verified via Polar; premium features enabled")
+                return 0
+            else:
+                print("⚠️ Verification failed; using local tier settings")
+                return 1
+        except Exception as e:
+            print(f"⚠️ Verification error: {e}")
+            return 1
     elif action == "upgrade":
         print("Upgrade via Polar/Stripe:")
         print("  1) Visit your Polar checkout page")
@@ -98,5 +118,5 @@ def run(args: argparse.Namespace, config=None) -> int:
         print("  3) Then: power-benchmark premium status")
         return 0
     else:
-        print("Specify an action: status | enable-test | upgrade")
+        print("Specify an action: status | enable-test | login | verify | upgrade")
         return 1

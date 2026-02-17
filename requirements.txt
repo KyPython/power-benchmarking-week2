@@ -27,6 +27,9 @@ reportlab>=4.0.0
 jinja2>=3.1.0
 schedule>=1.2.0
 
+# HTTP
+requests>=2.31.0
+
 # Note: Development and testing dependencies are in requirements-dev.txt
 # Install with: pip install -r requirements-dev.txt
 
